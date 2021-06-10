@@ -72,6 +72,60 @@ available from the Internet.
 
 ## Kubernetes Bundle
 
-1. As a tarball with a snapshot of all components (e.g. as a Gravity package with a registry dump of all images).
-1. As a manifest which describes the component sources that can be pulled from (either directly from the Internet
-or from a private registry which is previously populated with the required images)
+1. As a tarball with a snapshot of all components (e.g. as a Gravity package containing all docker images) and a manifest.
+
+1. As a manifest which references the components from external sources (e.g. Internet or a private
+registry which might have been populated with the required images).
+
+
+[spec.cue]
+```
+package k8s-bundle
+
+KubernetesBundle: {
+  ApiVersion: "v1alpha1"
+  Kind: "gravitational.io/k8s-bundle"
+  Spec: Spec
+}
+
+Spec: {
+  Version: string // k8s version
+  Components: {
+    ApiServer: #Component
+    Scheduler: #Component
+    ControllerManager: #Component
+    Proxy: #Component
+    Kubelet: #Component
+    DNS: #Component // ??
+  }
+}
+
+#Component: {
+  Image: #ImageRef
+  // TODO: additional fields?
+}
+```
+
+
+## Changes
+
+### Tele
+
+Tele will receive a new command to build k8s bundles.
+
+
+## Application Manifest
+
+Users will be able to set the version of Kubernetes in their Application Manifest. The resulting cluster image
+will contain the new package `kubernetes-runtime` with k8s components as a set of docker images versioned with
+the version of k8s it contains.
+
+
+## Open Questions
+
+### Choice of distribution format for k8s components
+  1. docker images
+    1.1. distroless
+    1.1. full-fledged
+  1. binaries
+
