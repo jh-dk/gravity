@@ -891,7 +891,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		fmt.Sprintf("--etcd-initial-cluster-state=%v", config.etcd.initialClusterState),
 		fmt.Sprintf("--volume=%v:/ext/etcd", node.InGravity("planet", "etcd")),
 		fmt.Sprintf("--volume=%v:/ext/registry", node.InGravity("planet", "registry")),
-		fmt.Sprintf("--volume=%v:/ext/docker", node.InGravity("planet", "docker")),
+		fmt.Sprintf("--volume=%v:/ext/containerd", node.InGravity("planet", "docker")),
 		fmt.Sprintf("--volume=%v:/ext/share", node.InGravity("planet", "share")),
 		fmt.Sprintf("--volume=%v:/ext/state", node.InGravity("planet", "state")),
 		fmt.Sprintf("--volume=%v:/var/lib/kubelet", node.InGravity("planet", "kubelet")),
