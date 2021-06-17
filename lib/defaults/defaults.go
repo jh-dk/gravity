@@ -744,8 +744,8 @@ const (
 	// DockerBridge specifies the default name of the docker bridge
 	DockerBridge = "docker0"
 
-	// DockerCertsDir is the directory where Docker looks for certs
-	DockerCertsDir = "/etc/docker/certs.d"
+	// ContainerRuntimeCertsDir is the directory where Container Runtime looks for certs
+	ContainerRuntimeCertsDir = "/etc/containerd/certs.d"
 
 	// VendorPattern is the default app vendor pattern that matches all yaml files
 	VendorPattern = "**/*.yaml"

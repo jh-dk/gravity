@@ -108,15 +108,15 @@ func (r *RegistryConnectionRequest) CheckAndSetDefaults() error {
 	}
 	if r.CACertPath == "" {
 		r.CACertPath = filepath.Join(
-			defaults.DockerCertsDir, certName, certName+".crt")
+			defaults.ContainerRuntimeCertsDir, certName, certName+".crt")
 	}
 	if r.ClientCertPath == "" {
 		r.ClientCertPath = filepath.Join(
-			defaults.DockerCertsDir, certName, "client.cert")
+			defaults.ContainerRuntimeCertsDir, certName, "client.cert")
 	}
 	if r.ClientKeyPath == "" {
 		r.ClientKeyPath = filepath.Join(
-			defaults.DockerCertsDir, certName, "client.key")
+			defaults.ContainerRuntimeCertsDir, certName, "client.key")
 	}
 	return nil
 }

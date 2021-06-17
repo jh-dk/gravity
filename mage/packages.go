@@ -414,7 +414,8 @@ func (Package) Planet(ctx context.Context) (err error) {
 
 	if _, err := os.Stat(pkgPlanet.defaultCachePath()); !os.IsNotExist(err) {
 		m.SetCached(true)
-		return trace.Wrap(pkgPlanet.ImportPackage(ctx, m, pkgPlanet.defaultCachePath()))
+		return trace.Wrap(pkgPlanet.ImportPackage(ctx, m,
+			pkgPlanet.defaultCachePath(), "purpose:runtime"))
 	}
 
 	err = pkgPlanet.BuildApp(ctx)
@@ -874,7 +875,7 @@ func (p gravityPackage) localAppImport(ctx context.Context, m *magnet.MagnetTarg
 	return trace.Wrap(err)
 }
 
-func (p gravityPackage) ImportPackage(ctx context.Context, m *magnet.MagnetTarget, path string) error {
+func (p gravityPackage) ImportPackage(ctx context.Context, m *magnet.MagnetTarget, path string, labels ...string) error {
 	mg.Deps(Mkdir(consistentStateDir()))
 	// I'm not sure the gravity package store is really protected against concurrent access
 	// so until we're sure, have operations take a lock
@@ -893,13 +894,18 @@ func (p gravityPackage) ImportPackage(ctx context.Context, m *magnet.MagnetTarge
 		return trace.Wrap(err)
 	}
 
-	_, err = m.Exec().Run(
-		ctx,
-		consistentGravityBin(),
-		"--state-dir", consistentStateDir(),
+	args := []string{"--state-dir", consistentStateDir(),
 		"package", "import",
 		path,
 		p.Locator(),
+	}
+	if len(labels) != 0 {
+		args = append(args, "--labels", strings.Join(labels, ","))
+	}
+	_, err = m.Exec().Run(
+		ctx,
+		consistentGravityBin(),
+		args...,
 	)
 	return trace.Wrap(err)
 }

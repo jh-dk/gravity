@@ -946,8 +946,9 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 	}
 	args = append(args, fmt.Sprintf("--dns-port=%v", dnsConfig.Port))
 
-	dockerArgs := configureDockerOptions(config.docker)
-	args = append(args, dockerArgs...)
+	// TODO(dima): update to configure containerd
+	// dockerArgs := configureDockerOptions(config.docker)
+	// args = append(args, dockerArgs...)
 
 	etcdArgs := manifest.EtcdArgs(*profile)
 	if len(etcdArgs) != 0 {
@@ -1443,30 +1444,6 @@ func (s *site) addClusterConfig(config clusterconfig.Interface, overrideArgs map
 	if globalConfig.HighAvailability {
 		args = append(args, "--high-availability")
 	}
-	return args
-}
-
-// configureDockerOptions creates a set of Docker-specific command line arguments to Planet on the specified node
-// based on the operation op and docker manifest configuration block.
-func configureDockerOptions(docker storage.DockerConfig) (args []string) {
-	formatOptions := func(args []string) string {
-		return fmt.Sprintf(`--docker-options=%v`, strings.Join(args, " "))
-	}
-
-	args = []string{fmt.Sprintf("--docker-backend=%v", docker.StorageDriver)}
-
-	switch docker.StorageDriver {
-	case constants.DockerStorageDriverOverlay2:
-		// Override kernel check to support overlay2
-		// See: https://github.com/docker/docker/issues/26559
-		const overlayKernelOverride = "--storage-opt=overlay2.override_kernel_check=1"
-
-		options := append(docker.Args, []string{overlayKernelOverride}...)
-		args = append(args, formatOptions(options))
-	default:
-		args = append(args, formatOptions(docker.Args))
-	}
-
 	return args
 }
 
