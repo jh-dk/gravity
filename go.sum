@@ -399,8 +399,8 @@ github.com/gravitational/log v0.0.0-20200127200505-fdffa14162b0 h1:gxT3g2wRixRJ2
 github.com/gravitational/log v0.0.0-20200127200505-fdffa14162b0/go.mod h1:zJJqcfDBGf9G5qdBzs0Ai3FDwIvmvzl16nlClqcJyy4=
 github.com/gravitational/logrus v1.4.3 h1:gdyMN/zLd4R/kATybKzG1I6gjrbCqNJOl1XiixdT5e4=
 github.com/gravitational/logrus v1.4.3/go.mod h1:+F7Ogzej0PZc/94MaYx/nvG9jOFMD2osvC3s+Squfpo=
-github.com/gravitational/magnet v0.2.6 h1:aaq0+90HbBudn8XFeaM5u9/ECmrL9u1+yJABT9npEb0=
-github.com/gravitational/magnet v0.2.6/go.mod h1:oAXGb+LybyWHBkPtJZPxbh5CKNNdeZE2lRQ8i2nOS2Q=
+github.com/gravitational/magnet v0.2.7-0.20210609203954-0a59f53f530e h1:yDDoKxGE9kpId7555BP1IgjikZFLX2h/6yA3MomGMDw=
+github.com/gravitational/magnet v0.2.7-0.20210609203954-0a59f53f530e/go.mod h1:1hC1lZ075A/syd4/xlrq5eVAGzleRcnDG9xegcxZ7Ts=
 github.com/gravitational/moby v1.4.2-0.20191008111026-2adf434ca696 h1:GI3Wyc/dLHL8snw18nLrSWTyKqMHF+pB8APFw0bQe3I=
 github.com/gravitational/moby v1.4.2-0.20191008111026-2adf434ca696/go.mod h1:bDzK0jA4s+TisyeqAiirQQULXKzSLYhmAd3NHeVgaHs=
 github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 h1:244Hc0XnOrqZxR0Fbwt9nwlvM5HnqKWJE+r5EdG6v4A=
@@ -511,8 +511,6 @@ github.com/improbable-eng/thanos v0.3.2/go.mod h1:GZewVGILKuJVPNRn7L4Zw+7X96qzFO
 github.com/inconshreveable/mousetrap v1.0.0 h1:Z8tu5sraLXCXIcARxBp/8cbvlwVa7Z1NHg9XEKhtSvM=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/influxdata/influxdb v1.5.1/go.mod h1:qZna6X/4elxqT3yI9iZYdZrWWdeFOOprn86kgg4+IzY=
-github.com/jaguilar/vt100 v0.0.0-20150826170717-2703a27b14ea h1:8jAXxWimXVprzB8T6UPtRc839vieK/m2LsvNU0aw5pA=
-github.com/jaguilar/vt100 v0.0.0-20150826170717-2703a27b14ea/go.mod h1:QMdK4dGB3YhEW2BmA1wgGpPYI3HZy/5gD705PXKUVSg=
 github.com/jessevdk/go-flags v0.0.0-20180331124232-1c38ed7ad0cc/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af h1:pmfjZENx5imkbgOkpRUYLnmbU7UEFbjtDA2hxJ1ichM=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
@@ -542,6 +540,8 @@ github.com/karrick/godirwalk v1.10.12/go.mod h1:RoGL9dQei4vP9ilrpETWE8CLOZ1kiN0L
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
+github.com/knisbet/mage v1.9.1-0.20210609142646-749a704341ac h1:MOsgxjsdw6rKsxuCKmS8RIVLLPwDctvC1leKhYPl9cE=
+github.com/knisbet/mage v1.9.1-0.20210609142646-749a704341ac/go.mod h1:z5UZb/iS3GoOSn0JgWuiw7dxlurVYTu+/jHXqQg881A=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.2 h1:DB17ag19krx9CFsz4o3enTrPXyIXCl+2iCXH/aMAp9s=
 github.com/konsorten/go-windows-terminal-sequences v1.0.2/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
@@ -569,9 +569,6 @@ github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de h1:9TO3cAIGXtEhn
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de/go.mod h1:zAbeS9B/r2mtpb6U+EI2rYA5OAXxsYw6wTamcNW+zcE=
 github.com/lithammer/dedent v1.1.0/go.mod h1:jrXYCQtgg0nJiN+StA2KgR7w6CiQNv9Fd/Z9BP0jIOc=
 github.com/lpabon/godbc v0.1.1/go.mod h1:Jo9QV0cf3U6jZABgiJ2skINAXb9j8m51r07g4KI92ZA=
-github.com/magefile/mage v1.8.0/go.mod h1:IUDi13rsHje59lecXokTfGX0QIzO45uVPlXnJYsXepA=
-github.com/magefile/mage v1.9.0 h1:t3AU2wNwehMCW97vuqQLtw6puppWXHO+O2MHo5a50XE=
-github.com/magefile/mage v1.9.0/go.mod h1:z5UZb/iS3GoOSn0JgWuiw7dxlurVYTu+/jHXqQg881A=
 github.com/magiconair/properties v0.0.0-20160816085511-61b492c03cf4/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/magiconair/properties v1.8.0/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/mailgun/lemma v0.0.0-20160211003854-e8b0cd607f58 h1:3ybhF5kzP0sdM06s8pPgHmUPx6IXFBXiBNA/2JCGnp4=
@@ -821,6 +818,8 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8 h1:ndzgwN
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea h1:SXhTLE6pb6eld/v/cCndK0AMpt1wiVFb/YYmqB3/QG0=
 github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea/go.mod h1:WPnis/6cRcDZSUvVmezrxJPkiO87ThFYsoUiMwWNDJk=
+github.com/tonistiigi/vt100 v0.0.0-20190402012908-ad4c4a574305 h1:y/1cL5AL2oRcfzz8CAHHhR6kDDfIOT0WEyH5k40sccM=
+github.com/tonistiigi/vt100 v0.0.0-20190402012908-ad4c4a574305/go.mod h1:gXOLibKqQTRAVuVZ9gX7G9Ykky8ll8yb4slxsEMoY0c=
 github.com/tstranex/u2f v0.0.0-20160508205855-eb799ce68da4 h1:aR+lGR8m0zBjvDlHkHOCmdsk79ipIPeiP75GqUlywKM=
 github.com/tstranex/u2f v0.0.0-20160508205855-eb799ce68da4/go.mod h1:eahSLaqAS0zsIEv80+vXT7WanXs7MQQDg3j3wGBSayo=
 github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqriFuLhtthL60Sar/7RFoluCcXsuvEwTV5KM=

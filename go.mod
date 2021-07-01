@@ -63,7 +63,7 @@ require (
 	github.com/gravitational/go-vhost v0.0.0-20171024163855-94d0c42e3263
 	github.com/gravitational/kingpin v2.1.10+incompatible // indirect
 	github.com/gravitational/license v0.0.0-20171013193735-f3111b1818ce
-	github.com/gravitational/magnet v0.2.6
+	github.com/gravitational/magnet v0.2.7-0.20210609203954-0a59f53f530e
 	github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 // indirect
 	github.com/gravitational/rigging v0.0.0-20200803191640-2a0fba75cac5
 	github.com/gravitational/roundtrip v1.0.0
@@ -159,7 +159,9 @@ replace (
 	github.com/fvbommel/sortorder => github.com/fvbommel/sortorder v1.0.1
 	github.com/google/certificate-transparency-go => github.com/gravitational/certificate-transparency-go v0.0.0-20180803094710-99d8352410cb
 	github.com/gravitational/satellite => github.com/a-palchikov/satellite v0.0.9-0.20210701113341-c00eafc55855
+	github.com/jaguilar/vt100 => github.com/tonistiigi/vt100 v0.0.0-20190402012908-ad4c4a574305
 	github.com/julienschmidt/httprouter => github.com/julienschmidt/httprouter v1.1.0
+	github.com/magefile/mage => github.com/knisbet/mage v1.9.1-0.20210609142646-749a704341ac
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
 	github.com/sirupsen/logrus => github.com/gravitational/logrus v1.4.3
 	gopkg.in/alecthomas/kingpin.v2 => github.com/gravitational/kingpin v2.1.11-0.20180808090833-85085db9f49b+incompatible

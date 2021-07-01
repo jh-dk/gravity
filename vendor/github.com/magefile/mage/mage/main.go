@@ -96,6 +96,7 @@ func Main() int {
 type Invocation struct {
 	Debug      bool          // turn on debug messages
 	Dir        string        // directory to read magefiles from
+	WorkDir    string        // directory where magefiles will run
 	Force      bool          // forces recreation of the compiled binary
 	Verbose    bool          // tells the magefile to print out log statements
 	List       bool          // tells the magefile to print out a list of targets
@@ -105,6 +106,7 @@ type Invocation struct {
 	CompileOut string        // tells mage to compile a static binary to this path, but not execute
 	GOOS       string        // sets the GOOS when producing a binary with -compileout
 	GOARCH     string        // sets the GOARCH when producing a binary with -compileout
+	Ldflags    string        // sets the ldflags when producing a binary with -compileout
 	Stdout     io.Writer     // writer to write stdout messages to
 	Stderr     io.Writer     // writer to write stderr messages to
 	Stdin      io.Reader     // reader to read stdin from
@@ -176,10 +178,12 @@ func Parse(stderr, stdout io.Writer, args []string) (inv Invocation, cmd Command
 	fs.BoolVar(&inv.Help, "h", false, "show this help")
 	fs.DurationVar(&inv.Timeout, "t", 0, "timeout in duration parsable format (e.g. 5m30s)")
 	fs.BoolVar(&inv.Keep, "keep", false, "keep intermediate mage files around after running")
-	fs.StringVar(&inv.Dir, "d", ".", "run magefiles in the given directory")
+	fs.StringVar(&inv.Dir, "d", ".", "directory to read magefiles from")
+	fs.StringVar(&inv.WorkDir, "w", "", "working directory where magefiles will run")
 	fs.StringVar(&inv.GoCmd, "gocmd", mg.GoCmd(), "use the given go binary to compile the output")
 	fs.StringVar(&inv.GOOS, "goos", "", "set GOOS for binary produced with -compile")
 	fs.StringVar(&inv.GOARCH, "goarch", "", "set GOARCH for binary produced with -compile")
+	fs.StringVar(&inv.Ldflags, "ldflags", "", "set ldflags for binary produced with -compile")
 
 	// commands below
 
@@ -203,25 +207,28 @@ Commands:
   -clean    clean out old generated binaries from CACHE_DIR
   -compile <string>
             output a static binary to the given path
+  -h        show this help
   -init     create a starting template if no mage files exist
   -l        list mage targets in this directory
-  -h        show this help
   -version  show version info for the mage binary
 
 Options:
   -d <string> 
-            run magefiles in the given directory (default ".")
+            directory to read magefiles from (default ".")
   -debug    turn on debug messages
-  -h        show description of a target
   -f        force recreation of compiled magefile
-  -keep     keep intermediate mage files around after running
+  -goarch   sets the GOARCH for the binary created by -compile (default: current arch)
   -gocmd <string>
 		    use the given go binary to compile the output (default: "go")
   -goos     sets the GOOS for the binary created by -compile (default: current OS)
-  -goarch   sets the GOARCH for the binary created by -compile (default: current arch)
+  -ldflags  sets the ldflags for the binary created by -compile (default: "")
+  -h        show description of a target
+  -keep     keep intermediate mage files around after running
   -t <string>
             timeout in duration parsable format (e.g. 5m30s)
   -v        show verbose output when running mage targets
+  -w <string>
+            working directory where magefiles will run (default -d value)
 `[1:])
 	}
 	err = fs.Parse(args)
@@ -296,6 +303,9 @@ func Invoke(inv Invocation) int {
 	}
 	if inv.Dir == "" {
 		inv.Dir = "."
+	}
+	if inv.WorkDir == "" {
+		inv.WorkDir = inv.Dir
 	}
 	if inv.CacheDir == "" {
 		inv.CacheDir = mg.CacheDir()
@@ -388,7 +398,7 @@ func Invoke(inv Invocation) int {
 		defer os.RemoveAll(main)
 	}
 	files = append(files, main)
-	if err := Compile(inv.GOOS, inv.GOARCH, inv.Dir, inv.GoCmd, exePath, files, inv.Debug, inv.Stderr, inv.Stdout); err != nil {
+	if err := Compile(inv.GOOS, inv.GOARCH, inv.Ldflags, inv.Dir, inv.GoCmd, exePath, files, inv.Debug, inv.Stderr, inv.Stdout); err != nil {
 		errlog.Println("Error:", err)
 		return 1
 	}
@@ -412,6 +422,7 @@ type mainfileTemplateData struct {
 	Description string
 	Funcs       []*parse.Function
 	DefaultFunc parse.Function
+	DeinitFunc  *parse.Function
 	Aliases     map[string]*parse.Function
 	Imports     []*parse.Import
 	BinaryName  string
@@ -484,7 +495,7 @@ func Magefiles(magePath, goos, goarch, goCmd string, stderr io.Writer, isDebug b
 }
 
 // Compile uses the go tool to compile the files into an executable at path.
-func Compile(goos, goarch, magePath, goCmd, compileTo string, gofiles []string, isDebug bool, stderr, stdout io.Writer) error {
+func Compile(goos, goarch, ldflags, magePath, goCmd, compileTo string, gofiles []string, isDebug bool, stderr, stdout io.Writer) error {
 	debug.Println("compiling to", compileTo)
 	debug.Println("compiling using gocmd:", goCmd)
 	if isDebug {
@@ -499,8 +510,14 @@ func Compile(goos, goarch, magePath, goCmd, compileTo string, gofiles []string, 
 	for i := range gofiles {
 		gofiles[i] = filepath.Base(gofiles[i])
 	}
-	debug.Printf("running %s build -o %s %s", goCmd, compileTo, strings.Join(gofiles, " "))
-	c := exec.Command(goCmd, append([]string{"build", "-o", compileTo}, gofiles...)...)
+	buildArgs := []string{"build", "-o", compileTo}
+	if ldflags != "" {
+		buildArgs = append(buildArgs, "-ldflags", ldflags)
+	}
+	args := append(buildArgs, gofiles...)
+
+	debug.Printf("running %s %s", goCmd, strings.Join(args, " "))
+	c := exec.Command(goCmd, args...)
 	c.Env = environ
 	c.Stderr = stderr
 	c.Stdout = stdout
@@ -529,6 +546,7 @@ func GenerateMainfile(binaryName, path string, info *parse.PkgInfo) error {
 		Aliases:     info.Aliases,
 		Imports:     info.Imports,
 		BinaryName:  binaryName,
+		DeinitFunc:  info.DeinitFunc,
 	}
 
 	if info.DefaultFunc != nil {
@@ -617,6 +635,9 @@ func RunCompiled(inv Invocation, exePath string, errlog *log.Logger) int {
 	c.Stdout = inv.Stdout
 	c.Stdin = inv.Stdin
 	c.Dir = inv.Dir
+	if inv.WorkDir != inv.Dir {
+		c.Dir = inv.WorkDir
+	}
 	// intentionally pass through unaltered os.Environ here.. your magefile has
 	// to deal with it.
 	c.Env = os.Environ()
