@@ -9,7 +9,8 @@
 # - make install  : build via `go install`. The output goes into GOPATH/bin/
 # - make clean    : remove the build output and artifacts
 #
-TOP := $(realpath $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
+MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
+TOP := $(realpath $(patsubst %/,%,$(dir $(MKFILE_PATH))))
 
 OPS_URL ?=
 
@@ -18,50 +19,26 @@ GRAVITY_PKG_PATH ?= github.com/gravitational/gravity
 ASSETSDIR=$(TOP)/assets
 BINDIR ?= /usr/bin
 
-# Current Kubernetes version
-K8S_VER := 1.17.9
-# Kubernetes version suffix for the planet package, constructed by concatenating
-# major + minor padded to 2 chars with 0 + patch also padded to 2 chars, e.g.
-# 1.13.5 -> 11305, 1.13.12 -> 11312, 2.0.0 -> 20000 and so on
-K8S_VER_SUFFIX := $(shell printf "%d%02d%02d" $(shell echo $(K8S_VER) | sed "s/\./ /g"))
+include versions.mk
+
 GOLFLAGS ?= -w -s
 
-ETCD_VER := v2.3.7
-# Version of the version tool
-VERSION_TAG := 0.0.2
-
-FIO_VER ?= 3.15
 FIO_TAG := fio-$(FIO_VER)
 FIO_PKG_TAG := $(FIO_VER).0
 
 # Current versions of the dependencies
-CURRENT_TAG ?= $(shell ./version.sh)
-GRAVITY_TAG := $(CURRENT_TAG)
-# Abbreviated gravity version to use as a build ID
-GRAVITY_VERSION := $(CURRENT_TAG)
+GRAVITY_TAG ?= $(GRAVITY_VERSION)
 
 RELEASE_TARBALL_NAME ?=
 RELEASE_OUT ?=
 
-TELEPORT_TAG = 3.2.17
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.0.60-$(K8S_VER_SUFFIX)
-PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
 WORMHOLE_APP_TAG := $(GRAVITY_TAG)
-STORAGE_APP_TAG ?= 0.0.3
-LOGGING_APP_TAG ?= 6.0.10
-MONITORING_APP_TAG ?= 7.0.10
-DNS_APP_TAG = 7.0.3
-BANDWAGON_TAG ?= 6.0.1
 RBAC_APP_TAG := $(GRAVITY_TAG)
-TILLER_VERSION = 2.16.12
-TILLER_APP_TAG = 7.0.2
-SELINUX_VERSION ?= 6.0.1
-# URI of Wormhole container for default install
-WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.3.3
+
 # set this to true if you want to use locally built planet packages
 DEV_PLANET ?=
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')
@@ -77,8 +54,8 @@ TELE_COPY_TO_USER ?=
 TELE_COPY_TO_PASS ?=
 
 CURRENT_COMMIT := $(shell git rev-parse HEAD)
-VERSION_FLAGS := -X github.com/gravitational/gravity/vendor/github.com/gravitational/version.gitCommit=$(CURRENT_COMMIT) \
-	-X github.com/gravitational/gravity/vendor/github.com/gravitational/version.version=$(GRAVITY_VERSION) \
+VERSION_FLAGS := -X github.com/gravitational/version.gitCommit=$(CURRENT_COMMIT) \
+	-X github.com/gravitational/version.version=$(GRAVITY_VERSION) \
 	-X github.com/gravitational/gravity/lib/defaults.WormholeImg=$(WORMHOLE_IMG) \
 	-X github.com/gravitational/gravity/lib/defaults.TeleportVersionString=$(TELEPORT_TAG)
 GRAVITY_LINKFLAGS = "$(VERSION_FLAGS) $(GOLFLAGS)"
@@ -207,13 +184,15 @@ TEST_K8S ?= false
 
 GODEP_TAG ?= v0.5.4
 
-# grpc
-PROTOC_VER ?= 3.10.0
-PROTOC_PLATFORM := linux-x86_64
-GOGO_PROTO_TAG ?= v1.3.0
-GRPC_GATEWAY_TAG ?= v1.11.3
-
 BINARIES ?= tele gravity terraform-provider-gravity
+
+GRPC_PROTOS = \
+	$(TOP)/lib/install/proto/installer.proto \
+	$(TOP)/lib/rpc/proto/agent.proto \
+	$(TOP)/lib/rpc/proto/discovery.proto \
+	$(TOP)/lib/network/validation/proto/validation.proto
+GRPC_PROTO_OUTPUTS = $(GRPC_PROTOS:.proto=.pb.go)
+
 TF_PROVIDERS ?= terraform-provider-gravity
 
 export
@@ -226,7 +205,7 @@ build:
 # 'install' uses the host's Golang to place output into $GOPATH/bin
 .PHONY: install
 install:
-	go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" ./tool/tele ./tool/gravity
+	GO111MODULE=on go install -mod=vendor -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" ./tool/tele ./tool/gravity
 
 # 'clean' removes the build artifacts
 .PHONY: clean
@@ -243,13 +222,20 @@ production:
 	rm -rf $(TMP)
 
 #
+# generate GRPC files in docker container
+#
+.PHONY: grpc-docker
+grpc-docker:
+	$(MAKE) -C build.assets grpc
+
+#
 # generate GRPC files
 #
 .PHONY: grpc
-grpc:
-	PROTOC_VER=$(PROTOC_VER) PROTOC_PLATFORM=$(PROTOC_PLATFORM) \
-	GOGO_PROTO_TAG=$(GOGO_PROTO_TAG) GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) VERSION_TAG=$(VERSION_TAG) \
-	$(MAKE) -C build.assets grpc
+grpc: $(GRPC_PROTO_OUTPUTS)
+
+$(GRPC_PROTO_OUTPUTS): $(GRPC_PROTOS)
+	make -C $(@D)
 
 #
 # build tsh binary
@@ -527,7 +513,7 @@ wormhole: $(GRAVITY_BUILDDIR)/wormhole.tar
 
 $(GRAVITY_BUILDDIR)/wormhole.tar: packages
 	$(GRAVITY_BUILDDIR)/tele build $(ASSETSDIR)/wormhole/resources/app.yaml -f \
-		--version=$(GRAVITY_APP_TAG) \
+		--version=$(WORMHOLE_APP_TAG) \
 		--state-dir=$(PACKAGES_DIR) \
 		--skip-version-check \
 		-o $(GRAVITY_BUILDDIR)/wormhole.tar
@@ -609,7 +595,7 @@ tele-mac: flags
 #
 .PHONY: goinstall
 goinstall: remove-temp-files compile | $(TF_PROVIDER_DIR) $(GRAVITY_BUILDDIR)
-	for bin in ${BINARIES} ; do \
+	for bin in $(BINARIES) ; do \
 		cp $(GOPATH)/bin/$${bin} $(GRAVITY_BUILDDIR)/$${bin} ; \
 	done
 	for provider in ${TF_PROVIDERS} ; do \
@@ -630,8 +616,8 @@ $(TF_PROVIDER_DIR):
 	mkdir -p $@
 
 .PHONY: $(BINARIES)
-$(BINARIES): selinux grpc
-	go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$@
+$(BINARIES): selinux grpc-docker
+	GO111MODULE=on go install -mod=vendor -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$@
 
 .PHONY: wizard-publish
 wizard-publish: BUILD_BUCKET_URL = s3://get.gravitational.io

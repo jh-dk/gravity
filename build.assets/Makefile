@@ -7,32 +7,27 @@
 #
 
 OPS_URL ?=
-LOCALDIR := $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
+MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
+LOCALDIR := $(realpath $(patsubst %/,%,$(dir $(MKFILE_PATH))))
+TOP := $(abspath $(LOCALDIR)/..)
 LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
 # Path to the local gravity build assets directory used inside the container
 LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
 
+include ../versions.mk
+
 DOCKER_ARGS ?= --pull
+NOROOT=-u $$(id -u):$$(id -g)
 BUILDBOX = gravity-buildbox:7.0.x
 TESTBOX ?= gravity-testbox:7.0.x
 
 GRAVITY_WEB_APP_DIR ?= $(abspath $(LOCALDIR)/../web)/
 
 # Git versions (refspecs) for build targets
-TELEPORT_TAG ?= master
-PLANET_TAG ?= master
-PLANET_BRANCH ?= $(PLANET_TAG)
-BANDWAGON_TAG ?= 1.0.0
 BANDWAGON_BRANCH ?= $(BANDWAGON_TAG)
-LOGGING_APP_TAG ?= 0.0.1
 LOGGING_APP_BRANCH ?= $(LOGGING_APP_TAG)
-MONITORING_APP_TAG ?= 0.0.1
 MONITORING_APP_BRANCH ?= $(MONITORING_APP_TAG)
-STORAGE_APP_TAG ?= 0.0.1
 STORAGE_APP_BRANCH ?= $(STORAGE_APP_TAG)
-K8S_APP_TAG ?= 0.0.1
-TILLER_APP_TAG ?= 0.0.1
-SELINUX_BRANCH ?= distro/centos_rhel/7
 
 GOLFLAGS ?= -w -s
 
@@ -98,12 +93,8 @@ BASH ?= /bin/bash
 # packages to test
 TEST_PACKAGES ?= $(GRAVITY_PKG_PATH)/lib/... $(GRAVITY_PKG_PATH)/tool/...
 
-GRPC_PROTOS = \
-	$(TOP)/lib/install/proto/installer.proto \
-	$(TOP)/lib/rpc/proto/agent.proto \
-	$(TOP)/lib/rpc/proto/discovery.proto \
-	$(TOP)/lib/network/validation/proto/validation.proto
-GRPC_PROTO_OUTPUTS = $(GRPC_PROTOS:.proto=.pb.go)
+# Version of the version tool
+VERSION_TAG := 0.0.2
 
 # Export variables for recursive make invocations
 export GRAVITY_PKG_PATH
@@ -128,10 +119,10 @@ test: testbox test-etcd
 		-v $(TOP):$(SRCDIR) \
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		--tmpfs /tmp:rw,nosuid,nodev,exec,relatime \
-		-e "GRAVITY_PKG_PATH=$(GRAVITY_PK,_PATH)" \
+		-e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
 		-e "TEST_PACKAGES=$(TEST_PACKAGES)" \
 		-t $(TESTBOX) \
-		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-cover -race' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
+		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-cover -race -mod=vendor' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
 
 
 .PHONY: test-inside-container
@@ -194,13 +185,11 @@ endif
 # generate gRPC code
 #
 .PHONY: grpc
-grpc: $(GRPC_PROTO_OUTPUTS)
-
-$(GRPC_PROTO_OUTPUTS): buildbox $(GRPC_PROTOS)
-	docker run --rm=true -u $$(id -u) \
-		   -v $(TOP):$(SRCDIR) \
-		   $(BUILDBOX) \
-		   dumb-init make -C $(subst $(TOP),$(SRCDIR),$(@D))
+grpc:
+	docker run --rm=true $(NOROOT) \
+	   -v $(TOP):$(SRCDIR) \
+	   $(BBOX) \
+	   dumb-init make -C $(SRCDIR) grpc
 
 #
 # this is a temporary target until we upgrade docker packages
@@ -222,7 +211,7 @@ validate-deps: buildbox
 #
 .PHONY: build-in-container
 build-in-container: buildbox
-	docker run --rm=true -u $$(id -u) \
+	docker run --rm=true $(NOROOT) \
 		   -v $(TOP):$(SRCDIR) \
 		   -e "LOCAL_BUILDDIR=$(LOCAL_BUILDDIR)" \
 		   -e "LOCAL_GRAVITY_BUILDDIR=$(LOCAL_GRAVITY_BUILDDIR)" \
@@ -236,6 +225,26 @@ build-in-container: buildbox
 		   $(GOCACHE_DOCKER_OPTIONS) \
 		   $(BUILDBOX) \
 		   dumb-init make -C $(SRCDIR)/build.assets -j $(TARGETS)
+
+#
+# golint gravity binaries in a buildbox container
+#
+.PHONY: golint
+golint: buildbox
+	docker run --rm=true $(NOROOT) \
+		   -v $(TOP):$(SRCDIR) \
+		   -w /gopath/src/github.com/gravitational/gravity \
+		   -e "LOCAL_BUILDDIR=$(LOCAL_BUILDDIR)" \
+		   -e "LOCAL_GRAVITY_BUILDDIR=$(LOCAL_GRAVITY_BUILDDIR)" \
+		   -e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
+		   -e "GRAVITY_VERSION=$(GRAVITY_VERSION)" \
+		   -e "GRAVITY_TAG=$(GRAVITY_TAG)" \
+		   -e 'GRAVITY_LINKFLAGS=$(GRAVITY_LINKFLAGS)' \
+		   -e "GRAVITY_BUILDFLAGS=$(GRAVITY_BUILDFLAGS)" \
+		   -e "GRAVITY_BUILDTAGS=$(GRAVITY_BUILDTAGS)" \
+		   $(GOCACHE_DOCKER_OPTIONS) \
+		   $(BBOX) \
+		   dumb-init make -C $(SRCDIR) golint
 
 #
 # build gravity binaries on host
@@ -330,13 +339,13 @@ $(GOCACHE):
 .PHONY: $(TARGETS)
 $(TARGETS): | $(GOCACHE)
 	@echo -e "\n----> Building $@ binary...\n"
-	go build -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
+	GO111MODULE=on go build -mod=vendor -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
 	@echo "\nDone --> $@\n"
 
 .PHONY: $(HOST_TARGETS)
 $(HOST_TARGETS): | $(GOCACHE)
 	@echo -e "\n----> Building $@ binary...\n"
-	go build -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
+	GO111MODULE=on go build -mod=vendor -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
 	@echo "\nDone --> $@\n"
 
 .PHONY: compile
@@ -468,7 +477,7 @@ build-tsh:
 #
 .PHONY: build-tsh-in-container
 build-tsh-in-container: clone-teleport
-	docker run --rm=true -u $$(id -u) \
+	docker run --rm=true $(NOROOT) \
            -v $(TOP):$(SRCDIR) \
 		   -v $(TELEPORT_SRCDIR)/teleport:$(TELEPORT_SRCDIR_CONTAINER) \
 		   -e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
@@ -582,7 +591,7 @@ build-fio:
 
 .PHONY: build-fio-sub
 build-fio-sub: clone-fio
-	docker run --rm=true -u $$(id -u) \
+	docker run --rm=true $(NOROOT) \
 	    -v $(TOP):$(SRCDIR) \
 	    -v $(FIO_BUILDDIR):/fio \
 	    $(BUILDBOX) \
@@ -697,8 +706,8 @@ buildbox:
 		--build-arg PROTOC_PLATFORM=$(PROTOC_PLATFORM) \
 		--build-arg GOGO_PROTO_TAG=$(GOGO_PROTO_TAG) \
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
-		--build-arg GODEP_TAG=$(GODEP_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
+		--build-arg GOLANGCI_LINT_VER=$(GOLANGCI_LINT_VER) \
 		--build-arg UID=$(shell id -u) \
 		--build-arg GID=$(shell id -g) \
 		$(DOCKER_ARGS) --tag $(BUILDBOX) .
