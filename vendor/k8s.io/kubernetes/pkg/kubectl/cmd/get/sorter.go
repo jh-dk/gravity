@@ -34,7 +34,7 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 	"k8s.io/utils/integer"
 
-	"github.com/fvbommel/sortorder"
+	"vbom.ml/util/sortorder"
 )
 
 // SortingPrinter sorts list types before delegating to another printer.
