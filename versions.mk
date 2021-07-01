@@ -10,8 +10,9 @@ K8S_VER := 1.17.9
 # major + minor padded to 2 chars with 0 + patch also padded to 2 chars, e.g.
 # 1.13.5 -> 11305, 1.13.12 -> 11312, 2.0.0 -> 20000 and so on
 K8S_VER_SUFFIX ?= $(shell printf "%d%02d%02d" $(shell echo $(K8S_VER) | sed "s/\./ /g"))
-PLANET_TAG ?= 7.0.60-$(K8S_VER_SUFFIX)
-PLANET_BRANCH ?= $(PLANET_TAG)
+PLANET_TAG ?= 7.0.61-$(K8S_VER_SUFFIX)
+#PLANET_BRANCH ?= $(PLANET_TAG)
+PLANET_BRANCH ?= dmitri/7.0.x/upgrade-7-9
 # system applications
 STORAGE_APP_TAG ?= 0.0.3
 LOGGING_APP_TAG ?= 6.0.10

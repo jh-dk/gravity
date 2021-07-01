@@ -195,12 +195,13 @@ var (
 			pkgWebAssets.Locator(),
 			pkgRBAC.Locator(),
 			pkgDNSApp.Locator(),
-			pkgLoggingApp.Locator(),
-			pkgMonitoringApp.Locator(),
-			pkgIngressApp.Locator(),
-			pkgStorageApp.Locator(),
+			// TODO(dima): remove temporarily here as these have been turned off in the manifest
+			//pkgLoggingApp.Locator(),
+			//pkgMonitoringApp.Locator(),
+			//pkgIngressApp.Locator(),
+			//pkgStorageApp.Locator(),
 			pkgBandwagonApp.Locator(),
-			pkgTillerApp.Locator(),
+			//pkgTillerApp.Locator(),
 			pkgSiteApp.Locator(),
 		},
 		force: true,
@@ -220,9 +221,9 @@ func (Package) K8s(ctx context.Context) (err error) {
 	mg.CtxDeps(ctx, Mkdir(consistentStateDir()),
 		Build.Go, Package.Gravity, Package.Teleport,
 		Package.Fio, Package.Planet, Package.Web,
-		Package.Site, Package.Monitoring, Package.Logging,
-		Package.Ingress, Package.Storage, Package.Tiller,
-		Package.Rbac, Package.DNS, Package.Bandwagon)
+		// TODO(dima): remove temporarily here as these have been turned off in the manifest
+		// Package.Monitoring, Package.Logging, Package.Ingress, Package.Storage, Package.Tiller,
+		Package.Rbac, Package.DNS, Package.Bandwagon, Package.Site)
 
 	m := root.Target("package:k8s")
 	defer func() { m.Complete(err) }()

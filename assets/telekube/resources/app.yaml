@@ -141,7 +141,7 @@ storage:
 systemOptions:
   runtime:
     # TODO(dima): test runtime
-    version: "20.0.0-rc1"
+    version: "0.0.0+latest"
   docker:
     storageDriver: overlay2
 extensions:
