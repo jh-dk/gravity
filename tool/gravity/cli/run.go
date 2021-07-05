@@ -688,7 +688,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.AppPullCmd.FullCommand():
 		return pullApp(localEnv,
 			*g.AppPullCmd.Package,
-			*g.AppPullCmd.OpsCenterURL,
+			*g.AppPullCmd.From,
 			*g.AppPullCmd.Labels,
 			*g.AppPullCmd.Force)
 	case g.AppPushCmd.FullCommand():
@@ -709,6 +709,10 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.AppUnpackCmd.OpsCenterURL,
 			*g.AppUnpackCmd.ServiceUID)
 	// package commands
+	case g.PackManifestCmd.FullCommand():
+		return outputPackageManifest(localEnv,
+			*g.PackManifestCmd.Package,
+			*g.PackManifestCmd.Format)
 	case g.PackImportCmd.FullCommand():
 		return importPackage(localEnv,
 			*g.PackImportCmd.Path,
@@ -756,11 +760,11 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.PackPushCmd.FullCommand():
 		return pushPackage(localEnv,
 			*g.PackPushCmd.Package,
-			*g.PackPushCmd.OpsCenterURL)
+			*g.PackPushCmd.To)
 	case g.PackPullCmd.FullCommand():
 		return pullPackage(localEnv,
 			*g.PackPullCmd.Package,
-			*g.PackPullCmd.OpsCenterURL,
+			*g.PackPullCmd.From,
 			*g.PackPullCmd.Labels,
 			*g.PackPullCmd.Force)
 	case g.PackLabelsCmd.FullCommand():
