@@ -27,24 +27,28 @@ import (
 type Cluster mg.Namespace
 
 // Gravity builds the reference gravity cluster image.
-func (Cluster) Gravity(ctx context.Context) (err error) {
+func (Cluster) Gravity(ctx context.Context, upgradeVia string) (err error) {
 	mg.CtxDeps(ctx, Mkdir(consistentStateDir()), Mkdir(consistentBinDir()),
 		Build.Go, Package.Telekube)
 
 	m := root.Target("cluster:gravity")
 	defer func() { m.Complete(err) }()
 
-	_, err = m.Exec().SetEnv("GRAVITY_K8S_VERSION", k8sVersion).Run(context.TODO(),
-		filepath.Join(consistentBinDir(), "tele"),
+	args := []string{
 		"--debug",
 		"build",
 		"assets/telekube/resources/app.yaml",
-		"-f",
+		"--overwrite",
 		"--version", buildVersion,
 		"--state-dir", consistentStateDir(),
 		"--skip-version-check",
-		"-o", filepath.Join(consistentBuildDir(), "gravity.tar"),
-	)
+		"--output", filepath.Join(consistentBuildDir(), "gravity.tar"),
+	}
+	if upgradeVia != "" {
+		args = append(args, "--upgrade-via", upgradeVia)
+	}
+	_, err = m.Exec().SetEnv("GRAVITY_K8S_VERSION", k8sVersion).Run(ctx,
+		filepath.Join(consistentBinDir(), "tele"), args...)
 	return trace.Wrap(err)
 }
 

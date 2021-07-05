@@ -180,6 +180,8 @@ type Application struct {
 	OpsAgentCmd OpsAgentCmd
 	// PackCmd combines subcommands for package service
 	PackCmd PackCmd
+	// PackManifestCmd outputs the package manifest
+	PackManifestCmd PackManifestCmd
 	// PackImportCmd imports package into cluster
 	PackImportCmd PackImportCmd
 	// PackUnpackCmd unpacks specified package
@@ -1044,8 +1046,8 @@ type AppPullCmd struct {
 	*kingpin.CmdClause
 	// Package is app locator
 	Package *loc.Locator
-	// OpsCenterURL is app service URL to pull from
-	OpsCenterURL *string
+	// From is app service URL to pull from
+	From *string
 	// Labels is labels to apply to pulled app
 	Labels *configure.KeyVal
 	// Force overwrites existing app
@@ -1171,6 +1173,15 @@ type PackCmd struct {
 	*kingpin.CmdClause
 }
 
+// PackManifestCmd outputs the package manifest
+type PackManifestCmd struct {
+	*kingpin.CmdClause
+	// Package specifies the package
+	Package *loc.Locator
+	// Format optionally specifies the output format
+	Format *string
+}
+
 // PackImportCmd imports package into cluster
 type PackImportCmd struct {
 	*kingpin.CmdClause
@@ -1261,8 +1272,8 @@ type PackPushCmd struct {
 	*kingpin.CmdClause
 	// Package is package locator
 	Package *loc.Locator
-	// OpsCenterURL is pack service URL to push into
-	OpsCenterURL *string
+	// To is pack service URL to push into
+	To *string
 }
 
 // PackPullCmd pulls package from specified cluster
@@ -1270,8 +1281,8 @@ type PackPullCmd struct {
 	*kingpin.CmdClause
 	// Package is package locator
 	Package *loc.Locator
-	// OpsCenterURL is pack service URL to pull from
-	OpsCenterURL *string
+	// From is pack service URL to pull from
+	From *string
 	// Labels is labels to update pulled package with
 	Labels *configure.KeyVal
 	// Force overwrites existing package
