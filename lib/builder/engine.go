@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
 	blobfs "github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/constants"
@@ -79,6 +80,8 @@ type Config struct {
 	Level utils.ProgressLevel
 	// Progress allows builder to report build progress
 	utils.Progress
+	// UpgradeVia lists intermediate runtime versions to embed
+	UpgradeVia []string
 }
 
 // CheckAndSetDefaults validates builder config and fills in defaults
@@ -184,17 +187,27 @@ func (b *Engine) SelectRuntime(manifest *schema.Manifest) (*semver.Version, erro
 
 // SyncPackageCache ensures that all system dependencies are present in
 // the local cache directory
-func (b *Engine) SyncPackageCache(manifest *schema.Manifest, runtimeVersion *semver.Version) error {
+func (b *Engine) SyncPackageCache(ctx context.Context, manifest *schema.Manifest, runtimeVersion semver.Version, intermediateVersions ...semver.Version) error {
 	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{ExcludeDeps: app.AppsToExclude(*manifest)})
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	syncer, err := b.NewSyncer(b)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, runtimeVersion := range append([]semver.Version{runtimeVersion}, intermediateVersions...) {
+		b.NextStep("Syncing packages for %v", runtimeVersion)
+		if err := b.syncPackageCache(ctx, runtimeVersion, syncer, apps); err != nil {
+			return trace.Wrap(err, "failed to sync packages for runtime version %v", runtimeVersion)
+		}
+	}
+	return nil
+}
+
+func (b *Engine) syncPackageCache(ctx context.Context, runtimeVersion semver.Version, syncer Syncer, apps libapp.Applications) error {
 	// see if all required packages/apps are already present in the local cache
-	manifest.SetBase(loc.Runtime.WithVersion(runtimeVersion))
-	err = app.VerifyDependencies(&app.Application{
-		Manifest: *manifest,
-		Package:  manifest.Locator(),
-	}, apps, b.Env.Packages)
+	err := libapp.VerifyDependencies(b.appForRuntime(runtimeVersion), apps, b.Env.Packages)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
@@ -209,11 +222,7 @@ func (b *Engine) SyncPackageCache(manifest *schema.Manifest, runtimeVersion *sem
 	}
 	log.Infof("Synchronizing package cache with %v.", repository)
 	b.NextStep("Downloading dependencies from %v", repository)
-	syncer, err := b.NewSyncer(b)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return syncer.Sync(b, manifest, runtimeVersion)
+	return syncer.Sync(ctx, b, runtimeVersion)
 }
 
 // VendorRequest combines vendoring parameters.
@@ -269,14 +278,14 @@ func (b *Engine) Vendor(ctx context.Context, req VendorRequest) (io.ReadCloser, 
 
 // CreateApplication creates a Gravity application from the provided
 // data in the local database
-func (b *Engine) CreateApplication(data io.ReadCloser) (*app.Application, error) {
-	progressC := make(chan *app.ProgressEntry)
+func (b *Engine) CreateApplication(data io.ReadCloser) (*libapp.Application, error) {
+	progressC := make(chan *libapp.ProgressEntry)
 	errorC := make(chan error, 1)
 	err := b.Packages.UpsertRepository(defaults.SystemAccountOrg, time.Time{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	op, err := b.Apps.CreateImportOperation(&app.ImportRequest{
+	op, err := b.Apps.CreateImportOperation(&libapp.ImportRequest{
 		Source:    data,
 		ProgressC: progressC,
 		ErrorC:    errorC,
@@ -320,6 +329,11 @@ func (b *Engine) initServices() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer func() {
+		if err != nil {
+			os.RemoveAll(b.Dir)
+		}
+	}()
 	b.Backend, err = keyval.NewBolt(keyval.BoltConfig{
 		Path: filepath.Join(b.Dir, defaults.GravityDBFile),
 	})

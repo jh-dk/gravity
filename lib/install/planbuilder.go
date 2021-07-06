@@ -263,7 +263,7 @@ func (b *PlanBuilder) getPullData(node storage.Server) (*storage.PullData, error
 	}
 	// Regular nodes pull only packages required for runtime such as planet
 	// or teleport. The planet package also depends on the node role.
-	planetPackage, err := b.Application.Manifest.RuntimePackageForProfile(node.Role)
+	planetPackage, err := b.Application.Manifest.RuntimePackageForProfileName(node.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -280,7 +280,7 @@ func (b *PlanBuilder) getPullData(node storage.Server) (*storage.PullData, error
 func (b *PlanBuilder) AddMastersPhase(plan *storage.OperationPlan) error {
 	var masterPhases []storage.OperationPhase
 	for i, node := range b.Masters {
-		planetPackage, err := b.Application.Manifest.RuntimePackageForProfile(node.Role)
+		planetPackage, err := b.Application.Manifest.RuntimePackageForProfileName(node.Role)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -336,7 +336,7 @@ func (b *PlanBuilder) AddMastersPhase(plan *storage.OperationPlan) error {
 func (b *PlanBuilder) AddNodesPhase(plan *storage.OperationPlan) error {
 	var nodePhases []storage.OperationPhase
 	for i, node := range b.Nodes {
-		planetPackage, err := b.Application.Manifest.RuntimePackageForProfile(node.Role)
+		planetPackage, err := b.Application.Manifest.RuntimePackageForProfileName(node.Role)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -561,7 +561,7 @@ func (b *PlanBuilder) AddExportPhase(plan *storage.OperationPlan) {
 
 // AddRuntimePhase appends system applications installation phase to the provided plan
 func (b *PlanBuilder) AddRuntimePhase(plan *storage.OperationPlan) error {
-	runtimeLocators, err := app.GetDirectDeps(b.Runtime)
+	runtimeLocators, err := app.GetDirectApplicationDependencies(b.Runtime)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -595,7 +595,7 @@ func (b *PlanBuilder) AddRuntimePhase(plan *storage.OperationPlan) error {
 
 // AddApplicationPhase appends user application installation phase to the provided plan
 func (b *PlanBuilder) AddApplicationPhase(plan *storage.OperationPlan) error {
-	applicationLocators, err := app.GetDirectDeps(b.Application)
+	applicationLocators, err := app.GetDirectApplicationDependencies(b.Application)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -663,7 +663,7 @@ func (b *PlanBuilder) skipDependency(dep loc.Locator) bool {
 	if dep.Name == constants.BootstrapConfigPackage {
 		return true // rbac-app is installed separately
 	}
-	return schema.ShouldSkipApp(b.Application.Manifest, dep)
+	return schema.ShouldSkipApp(b.Application.Manifest, dep.Name)
 }
 
 // GetPlanBuilder returns a new plan builder for this installer and provided

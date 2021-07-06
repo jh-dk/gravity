@@ -1383,10 +1383,6 @@ var ServiceAddr = fmt.Sprintf("%%v.%%v%v", ServiceAddrSuffix)
 // for node taints and tolerations in system applications
 var BaseTaintsVersion = semver.Must(semver.NewVersion("4.36.0"))
 
-// BaseUpdateVersion sets the minimum version that this binary
-// can update
-var BaseUpdateVersion = semver.Must(semver.NewVersion("3.51.0"))
-
 // DockerRegistryAddr returns the address of docker registry running on server
 func DockerRegistryAddr(server string) string {
 	return fmt.Sprintf("%v:%v", server, DockerRegistryPort)

@@ -168,6 +168,23 @@ func (m *Manifest) SetBase(locator loc.Locator) {
 	}
 }
 
+// WithBase returns a copy of this manifest with the specified base application
+func (m *Manifest) WithBase(locator loc.Locator) Manifest {
+	result := *m
+	if m.BaseImage != nil {
+		result.BaseImage = &BaseImage{Locator: locator}
+	}
+	if m.SystemOptions != nil {
+		systemOptions := *m.SystemOptions
+		result.SystemOptions = &systemOptions
+	} else {
+		result.SystemOptions = &SystemOptions{}
+	}
+	// Reset the runtime with the specified locator
+	result.SystemOptions.Runtime = &Runtime{Locator: locator}
+	return result
+}
+
 // FindFlavor returns a flavor by the provided name
 func (m Manifest) FindFlavor(name string) *Flavor {
 	if m.Installer != nil {
@@ -314,31 +331,42 @@ func (m Manifest) RuntimeArgs(profile NodeProfile) []string {
 	return append(args, m.SystemOptions.RuntimeArgs()...)
 }
 
-// RuntimePackageForProfile returns the planet package for the specified profile
-func (m Manifest) RuntimePackageForProfile(profileName string) (*loc.Locator, error) {
+// RuntimePackageForProfileName returns the planet package for the specified profile
+func (m Manifest) RuntimePackageForProfileName(profileName string) (*loc.Locator, error) {
 	profile, err := m.NodeProfiles.ByName(profileName)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return m.RuntimePackage(*profile)
+	return m.RuntimePackageForProfile(*profile)
 }
 
-// RuntimePackage returns the planet package for the specified profile.
+// RuntimePackageForProfile returns the planet package for the specified profile.
 // If the profile does not specify a runtime package, the default runtime
 // package is returned
-func (m Manifest) RuntimePackage(profile NodeProfile) (*loc.Locator, error) {
+func (m Manifest) RuntimePackageForProfile(profile NodeProfile) (*loc.Locator, error) {
 	if profile.SystemOptions != nil && profile.SystemOptions.Dependencies.Runtime != nil {
 		return &profile.SystemOptions.Dependencies.Runtime.Locator, nil
 	}
-	return m.DefaultRuntimePackage()
+	return m.RuntimePackage()
 }
 
-// DefaultRuntimePackage returns the default runtime package
-func (m Manifest) DefaultRuntimePackage() (*loc.Locator, error) {
+// RuntimePackage returns the global runtime package
+func (m Manifest) RuntimePackage() (*loc.Locator, error) {
 	if m.SystemOptions == nil || m.SystemOptions.Dependencies.Runtime == nil {
-		return nil, trace.NotFound("no runtime specified in manifest")
+		return m.LegacyRuntimePackage()
 	}
 	return &m.SystemOptions.Dependencies.Runtime.Locator, nil
+}
+
+// LegacyRuntimePackage returns the global runtime package if the manifest has been preprocessed by
+// the legacy hub. In this case, the planet package is taken from the list of general package dependencies
+func (m Manifest) LegacyRuntimePackage() (*loc.Locator, error) {
+	for _, dep := range m.Dependencies.Packages {
+		if loc.IsPlanetPackage(dep.Locator) {
+			return &dep.Locator, nil
+		}
+	}
+	return nil, trace.NotFound("no runtime specified in manifest")
 }
 
 // RuntimeImages returns the list of all runtime images.
@@ -367,7 +395,7 @@ func (m Manifest) AllPackageDependencies() (deps []loc.Locator) {
 // PackageDependencies returns the list of package dependencies
 // for the specified profile
 func (m Manifest) PackageDependencies(profile string) (deps []loc.Locator, err error) {
-	runtimePackage, err := m.RuntimePackageForProfile(profile)
+	runtimePackage, err := m.RuntimePackageForProfileName(profile)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -382,11 +410,11 @@ func (m Manifest) DefaultProvider() string {
 	return ""
 }
 
-// FilterDependencies filters the provided list of application locators and
+// FilterDisabledDependencies filters the provided list of application locators and
 // returns only those that are enabled based on the manifest settings.
-func (m Manifest) FilterDependencies(apps []loc.Locator) (result []loc.Locator) {
+func (m Manifest) FilterDisabledDependencies(apps []loc.Locator) (result []loc.Locator) {
 	for _, app := range apps {
-		if !ShouldSkipApp(m, app) {
+		if !ShouldSkipApp(m, app.Name) {
 			result = append(result, app)
 		}
 	}
@@ -520,10 +548,14 @@ func (d Dependencies) ByName(names ...string) (*loc.Locator, error) {
 	return nil, trace.NotFound("dependencies %q are not defined in the manifest", names)
 }
 
-// GetPackages returns a list of all package dependencies
+// GetPackages returns a list of all package dependencies except the runtime
+// package which is described in systemOptions
 func (d Dependencies) GetPackages() []loc.Locator {
-	packages := make([]loc.Locator, 0, len(d.Apps))
+	packages := make([]loc.Locator, 0, len(d.Packages))
 	for _, dep := range d.Packages {
+		if loc.IsPlanetPackage(dep.Locator) {
+			continue
+		}
 		packages = append(packages, dep.Locator)
 	}
 	return packages
@@ -1272,10 +1304,10 @@ var (
 	devicePermsRegex = regexp.MustCompile("^[rwm]+$")
 )
 
-// ShouldSkipApp returns true if the specified application should not be
+// ShouldSkipApp returns true if the application given with appName should not be
 // installed in the cluster described by the provided manifest.
-func ShouldSkipApp(manifest Manifest, app loc.Locator) bool {
-	switch app.Name {
+func ShouldSkipApp(manifest Manifest, appName string) bool {
+	switch appName {
 	case defaults.BandwagonPackageName:
 		// do not install bandwagon unless the app uses it in its post-install
 		setup := manifest.SetupEndpoint()

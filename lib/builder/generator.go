@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/trace"
 )
 
 // Generator defines a method for generating standalone installers
@@ -35,6 +36,15 @@ type generator struct{}
 // Generate generates an installer tarball for the specified application
 // using the provided builder and returns its data as a stream
 func (g *generator) Generate(engine *Engine, manifest *schema.Manifest, application app.Application) (io.ReadCloser, error) {
+	dependencies, err := b.collectUpgradeDependencies()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	req, err := b.Generator.NewInstallerRequest(b, application)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	req.AdditionalDependencies = *dependencies
 	return engine.Apps.GetAppInstaller(app.InstallerRequest{
 		Application: application.Package,
 	})
