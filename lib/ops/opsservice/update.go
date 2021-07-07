@@ -480,7 +480,10 @@ func (s *site) validateUpdateOperationRequest(req ops.CreateSiteAppUpdateOperati
 		packages:    s.packages(),
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		if !req.Force {
+			return trace.Wrap(err)
+		}
+		s.WithError(err).Warn("Upgrade path validation failed. Continue due to force flag set.")
 	}
 	// the new package must exist in the Ops Center
 	newEnvelope, err := s.packages().ReadPackageEnvelope(*updatePackage)
