@@ -65,7 +65,7 @@ func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err e
 		config:      config,
 		server:      server,
 		agent:       agent,
-		errC:        make(chan error, 2),
+		errC:        make(chan error, 1),
 		execC:       make(chan *installpb.ExecuteRequest),
 		execDoneC:   make(chan ExecResult, 1),
 		dispatcher:  dispatcher,
@@ -79,10 +79,7 @@ func New(ctx context.Context, config RuntimeConfig) (installer *Installer, err e
 
 // Run runs the server operation
 func (i *Installer) Run(listener net.Listener) error {
-	go func() {
-		i.errC <- i.server.Run(i, listener)
-	}()
-	err := <-i.errC
+	err := i.server.Run(i, listener)
 	i.stop()
 	i.WithField("exit-error", err).Info("Exit with error.")
 	return installpb.WrapServiceError(err)

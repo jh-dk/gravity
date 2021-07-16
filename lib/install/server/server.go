@@ -120,7 +120,7 @@ func (r *Server) Complete(ctx context.Context, req *installpb.CompleteRequest) (
 	return installpb.Empty, nil
 }
 
-// Abort aborts the operation and cleans up the state.
+// Abort requests the server to exit Run with an aborted error.
 // Implements installpb.AgentServer
 func (r *Server) Abort(ctx context.Context, req *installpb.AbortRequest) (*types.Empty, error) {
 	r.Info("Abort.")
@@ -128,7 +128,8 @@ func (r *Server) Abort(ctx context.Context, req *installpb.AbortRequest) (*types
 	return installpb.Empty, nil
 }
 
-// Shutdown closes the server gracefully.
+// Shutdown requests that the server exit Run with a corresponding
+// error as giveb by req.
 // Implements installpb.AgentServer
 func (r *Server) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (*types.Empty, error) {
 	r.WithField("req", req).Info("Shutdown.")
