@@ -19,11 +19,12 @@ package cli
 import (
 	"context"
 	"fmt"
+	"runtime"
 
 	//nolint:gosec // imported for side-effects
 	_ "net/http/pprof"
 
-	appservice "github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/install"
@@ -88,58 +89,43 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 		return trace.Wrap(err)
 	}
 
+	app, err := tarballEnv.Apps.GetApp(*appPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	deps, err := getUploadDependencies(tarballEnv, *app)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	env.PrintStep("Importing application %v v%v", appPackage.Name, appPackage.Version)
-	_, err = appservice.PullApp(appservice.AppPullRequest{
-		SrcPack: tarballEnv.Packages,
-		SrcApp:  tarballEnv.Apps,
-		DstPack: clusterPackages,
-		DstApp:  clusterApps,
-		Package: *appPackage,
-	})
-	if err != nil {
-		if !trace.IsAlreadyExists(err) {
-			return trace.Wrap(err)
-		}
-		env.PrintStep("Application already exists in local cluster")
+	puller := libapp.Puller{
+		FieldLogger: log.WithField(trace.Component, "pull"),
+		SrcPack:     tarballEnv.Packages,
+		SrcApp:      tarballEnv.Apps,
+		DstPack:     clusterPackages,
+		DstApp:      clusterApps,
+		Upsert:      true,
+		Parallel:    runtime.NumCPU(),
 	}
-
-	var registries []string
-	err = utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
-		registries, err = getRegistries(ctx, cluster.ClusterState.Servers)
-		return trace.Wrap(err)
-	})
+	err = puller.Pull(ctx, *deps)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	stateDir, err := state.GetStateDir()
+	err = puller.PullAppPackage(ctx, *appPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	deps.Apps = append(deps.Apps, *app)
 
-	for _, registry := range registries {
-		env.PrintStep("Synchronizing application with Docker registry %v",
-			registry)
-
-		imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-			RegistryAddress: registry,
-			CertName:        defaults.DockerRegistry,
-			CACertPath:      state.Secret(stateDir, defaults.RootCertFilename),
-			ClientCertPath:  state.Secret(stateDir, "kubelet.cert"),
-			ClientKeyPath:   state.Secret(stateDir, "kubelet.key"),
-		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		err = appservice.SyncApp(ctx, appservice.SyncRequest{
-			PackService:  tarballEnv.Packages,
-			AppService:   tarballEnv.Apps,
-			ImageService: imageService,
-			Package:      *appPackage,
-		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	syncer := libapp.Syncer{
+		PackService: tarballEnv.Packages,
+		AppService:  tarballEnv.Apps,
+	}
+	err = syncDependenciesWithCluster(ctx, env, *cluster, *deps, syncer)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	// Uploading new blobs to the cluster is known to cause stress on disk
@@ -161,6 +147,56 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 	}
 
 	env.PrintStep("Application has been uploaded")
+	return nil
+}
+
+func getUploadDependencies(env *localenv.TarballEnvironment, app libapp.Application) (*libapp.Dependencies, error) {
+	deps, err := libapp.GetDependencies(libapp.GetDependenciesRequest{
+		Pack: env.Packages,
+		Apps: env.Apps,
+		App:  app,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return deps, nil
+}
+
+func syncDependenciesWithCluster(ctx context.Context, env *localenv.LocalEnvironment, cluster ops.Site, deps libapp.Dependencies, syncer libapp.Syncer) error {
+	var registries []string
+	err := utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() (err error) {
+		registries, err = getRegistries(ctx, cluster.ClusterState.Servers)
+		return trace.Wrap(err)
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, registry := range registries {
+		env.PrintStep("Synchronizing application with Docker registry %v",
+			registry)
+
+		imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
+			RegistryAddress: registry,
+			CertName:        defaults.DockerRegistry,
+			CACertPath:      state.Secret(stateDir, defaults.RootCertFilename),
+			ClientCertPath:  state.Secret(stateDir, "kubelet.cert"),
+			ClientKeyPath:   state.Secret(stateDir, "kubelet.key"),
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		syncer.ImageService = imageService
+		err = syncer.Sync(ctx, deps)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	return nil
 }
 
