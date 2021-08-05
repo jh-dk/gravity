@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 
@@ -94,33 +95,24 @@ func (s *PullerSuite) TestPullAppInParallel(c *C) {
 }
 
 func (s *PullerSuite) pullApp(c *C, parallel int) {
-	packageBytes := bytes.NewReader([]byte(nil))
-	for _, loc := range []loc.Locator{loc.MustParseLocator("example.com/existing:0.0.1")} {
-		_, err := s.dstPack.CreatePackage(loc, packageBytes)
-		c.Assert(err, IsNil)
-	}
-	for _, loc := range []loc.Locator{
-		loc.MustParseLocator("example.com/new:0.0.1"),
-		loc.MustParseLocator("example.com/new:0.0.2"),
-		loc.MustParseLocator("example.com/existing:0.0.1"),
-	} {
-		_, err := s.srcPack.CreatePackage(loc, packageBytes)
-		c.Assert(err, IsNil)
-	}
-
-	runtimePackage := loc.MustParseLocator("gravitational.io/planet:0.0.1")
-	apptest.CreatePackage(s.srcPack, runtimePackage, nil, c)
-	apptest.CreateRuntimeApplication(s.srcApp, c)
-
-	locator := loc.MustParseLocator("example.com/app:0.0.2")
-	const dependencies = `
-dependencies:
-  packages:
-  - example.com/new:0.0.1
-  - example.com/new:0.0.2
-  - example.com/existing:0.0.1
-`
-	apptest.CreateDummyApplicationWithDependencies(s.srcApp, locator, dependencies, c)
+	clusterAppLoc := loc.MustParseLocator("gravitational.io/app:0.0.2")
+	existingLoc := apptest.NewDependency("example.com/existing:0.0.1")
+	clusterApp := apptest.DefaultClusterApplication(clusterAppLoc)
+	clusterApp.Manifest.Dependencies.Packages = append(clusterApp.Manifest.Dependencies.Packages, []schema.Dependency{
+		apptest.NewDependency("example.com/new:0.0.1"),
+		apptest.NewDependency("example.com/new:0.0.2"),
+		existingLoc,
+	}...)
+	apptest.CreateApplication(apptest.AppRequest{
+		App:      clusterApp,
+		Packages: s.srcPack,
+		Apps:     s.srcApp,
+	}, c)
+	// `existing` package is also available in the destination service
+	apptest.CreatePackage(apptest.PackageRequest{
+		Package:  apptest.Package{Loc: existingLoc.Locator},
+		Packages: s.dstPack,
+	}, c)
 
 	puller := app.Puller{
 		SrcPack:  s.srcPack,
@@ -130,21 +122,21 @@ dependencies:
 		Upsert:   true,
 		Parallel: parallel,
 	}
-	err := puller.PullApp(context.TODO(), locator)
+	err := puller.PullApp(context.TODO(), clusterAppLoc)
 	c.Assert(err, IsNil)
 
-	packages, err := s.dstPack.GetPackages("example.com")
-	c.Assert(err, IsNil)
-	c.Assert(packagesByName(locators(packages)), compare.SortedSliceEquals, packagesByName([]loc.Locator{
-		loc.MustParseLocator("example.com/app:0.0.2"),
+	verifyPackages(s.dstPack, []loc.Locator{
+		loc.MustParseLocator("gravitational.io/app:0.0.2"),
+		apptest.RuntimeApplicationLoc,
+		apptest.RuntimePackageLoc,
 		loc.MustParseLocator("example.com/existing:0.0.1"),
 		loc.MustParseLocator("example.com/new:0.0.1"),
 		loc.MustParseLocator("example.com/new:0.0.2"),
-	}))
+	}, c)
 
-	local, err := s.dstApp.GetApp(locator)
+	local, err := s.dstApp.GetApp(clusterAppLoc)
 	c.Assert(err, IsNil)
-	c.Assert(local.Package, Equals, locator)
+	c.Assert(local.Package, Equals, clusterAppLoc)
 
 	puller = app.Puller{
 		SrcPack:  s.srcPack,
@@ -153,7 +145,7 @@ dependencies:
 		DstApp:   s.dstApp,
 		Parallel: parallel,
 	}
-	err = puller.PullApp(context.TODO(), locator)
+	err = puller.PullApp(context.TODO(), clusterAppLoc)
 	c.Assert(trace.IsAlreadyExists(err), Equals, true)
 }
 
@@ -190,6 +182,20 @@ func setupServices(c *C) (storage.Backend, pack.PackageService, *Applications) {
 	c.Assert(err, IsNil)
 
 	return backend, packService, appService
+}
+
+func verifyPackages(packages pack.PackageService, expected []loc.Locator, c *C) {
+	repositories, err := packages.GetRepositories()
+	c.Assert(err, IsNil)
+
+	var result []loc.Locator
+	for _, repository := range repositories {
+		packages, err := packages.GetPackages(repository)
+		c.Assert(err, IsNil)
+		result = append(result, locators(packages)...)
+	}
+
+	c.Assert(packagesByName(result), compare.SortedSliceEquals, packagesByName(result))
 }
 
 func locators(envelopes []pack.PackageEnvelope) []loc.Locator {
