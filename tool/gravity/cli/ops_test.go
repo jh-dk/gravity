@@ -81,6 +81,7 @@ func (*OpsSuite) TestUploadsUpdate(c *check.C) {
 //
 // The contents will be expanded in the following layout:
 // <root>/registry/docker/registry/v2/...
+//nolint:revive,stylecheck // var-naming
 var registryTestimage_1_0_0 = map[string]*archive.Item{
 	"registry/": &archive.Item{
 		Header: tar.Header{

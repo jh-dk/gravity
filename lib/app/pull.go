@@ -42,9 +42,7 @@ import (
 //    the operation will either fail with the corresponding error or upsert the package
 //    (subject to upsert attribute)
 func (r Puller) PullApp(ctx context.Context, loc loc.Locator) error {
-	if err := r.checkAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
+	r.setDefaults()
 	app, err := r.SrcApp.GetApp(loc)
 	if err != nil {
 		return trace.Wrap(err)
@@ -69,25 +67,19 @@ func (r Puller) PullApp(ctx context.Context, loc loc.Locator) error {
 
 // PullPackage pulls the package specified with loc
 func (r Puller) PullPackage(ctx context.Context, loc loc.Locator) error {
-	if err := r.checkAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
+	r.setDefaults()
 	return r.pullPackageWithRetries(ctx, loc)
 }
 
 // PullAppPackage pulls the application package specified with loc
 func (r Puller) PullAppPackage(ctx context.Context, loc loc.Locator) error {
-	if err := r.checkAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
+	r.setDefaults()
 	return r.pullAppWithRetries(ctx, loc)
 }
 
 // PullAppDeps pulls only dependencies of the specified application
 func (r Puller) PullAppDeps(ctx context.Context, app Application) error {
-	if err := r.checkAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
+	r.setDefaults()
 	deps, err := GetDependencies(GetDependenciesRequest{
 		App:  app,
 		Apps: r.SrcApp,
@@ -101,9 +93,7 @@ func (r Puller) PullAppDeps(ctx context.Context, app Application) error {
 
 // Pull pulls the packages specified by deps
 func (r Puller) Pull(ctx context.Context, deps Dependencies) error {
-	if err := r.checkAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
+	r.setDefaults()
 	return r.pull(ctx, deps)
 }
 
@@ -160,14 +150,13 @@ type Puller struct {
 	OnConflict ConflictHandler
 }
 
-func (r *Puller) checkAndSetDefaults() error {
+func (r *Puller) setDefaults() {
 	if r.FieldLogger == nil {
 		r.FieldLogger = logrus.WithField(trace.Component, "pull")
 	}
 	if r.OnConflict == nil {
 		r.OnConflict = GetConflictHandler(r.Upsert)
 	}
-	return nil
 }
 
 func (r Puller) pullPackageHandler(ctx context.Context, loc loc.Locator) func() error {
@@ -203,7 +192,7 @@ func (r Puller) pullPackageWithRetries(ctx context.Context, loc loc.Locator) err
 
 func (r Puller) pullPackage(loc loc.Locator) error {
 	logger := r.WithField("package", loc)
-	env, err := r.DstPack.ReadPackageEnvelope(loc)
+	_, err := r.DstPack.ReadPackageEnvelope(loc)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
@@ -218,6 +207,7 @@ func (r Puller) pullPackage(loc loc.Locator) error {
 	}
 	logger.Info("Pull package.")
 	reader := ioutil.NopCloser(utils.NewNopReader())
+	var env *pack.PackageEnvelope
 	if r.MetadataOnly {
 		env, err = r.SrcPack.ReadPackageEnvelope(loc)
 	} else {

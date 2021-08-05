@@ -138,20 +138,18 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 			Upsert:  true,
 		}
 		return puller.PullApp(context.TODO(), imageEnv.Manifest.Locator())
-	} else {
-		// sync images to the registry specified on the command line.
-		env.PrintStep("Pushing application images to Docker registry %v", conf.Registry)
-		imageService, err := conf.imageService()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		syncer := libapp.Syncer{
-			PackService:  imageEnv.Packages,
-			AppService:   imageEnv.Apps,
-			ImageService: imageService,
-			Progress:     env,
-		}
-		return syncer.SyncApp(context.TODO(), imageEnv.Manifest.Locator())
 	}
-	return nil
+	// sync images to the registry specified on the command line.
+	env.PrintStep("Pushing application images to Docker registry %v", conf.Registry)
+	imageService, err := conf.imageService()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	syncer := libapp.Syncer{
+		PackService:  imageEnv.Packages,
+		AppService:   imageEnv.Apps,
+		ImageService: imageService,
+		Progress:     env,
+	}
+	return syncer.SyncApp(context.TODO(), imageEnv.Manifest.Locator())
 }

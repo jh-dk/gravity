@@ -104,7 +104,7 @@ func (s *s3Syncer) Sync(ctx context.Context, engine *Engine, manifest *schema.Ma
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// TODO(dima): verify that manifest in the arguments does not contain any additional depedencies
+	// TODO(dima): verify that manifest in the arguments does not contain any additional dependencies
 	// as opposed to the tarball application
 	tarballApp, err := env.Apps.GetApp(manifest.Locator())
 	if err != nil {

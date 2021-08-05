@@ -103,7 +103,7 @@ func CreateApplication(req AppRequest, c *check.C) (app *app.Application) {
 	pkgDeps := make(map[loc.Locator]Package)
 	appDeps := make(map[loc.Locator]App)
 	collectBaseDependencies(req.App.Base, pkgDeps, appDeps, c)
-	collectDependencies(req.App.Manifest, pkgDeps, appDeps, c)
+	collectDependencies(req.App.Manifest, pkgDeps, appDeps)
 	// override with dependencies from the configuration
 	for _, d := range req.App.Dependencies.Packages {
 		pkgDeps[d.Loc] = d
@@ -132,7 +132,7 @@ func CreateApplication(req AppRequest, c *check.C) (app *app.Application) {
 }
 
 func collectBaseDependencies(base schema.Manifest, pkgDeps map[loc.Locator]Package, appDeps map[loc.Locator]App, c *check.C) {
-	collectDependencies(base, pkgDeps, appDeps, c)
+	collectDependencies(base, pkgDeps, appDeps)
 	appDeps[base.Locator()] = App{
 		Manifest: base,
 	}
@@ -144,7 +144,7 @@ func collectBaseDependencies(base schema.Manifest, pkgDeps map[loc.Locator]Packa
 	}
 }
 
-func collectDependencies(base schema.Manifest, pkgDeps map[loc.Locator]Package, appDeps map[loc.Locator]App, c *check.C) {
+func collectDependencies(base schema.Manifest, pkgDeps map[loc.Locator]Package, appDeps map[loc.Locator]App) {
 	for _, d := range base.Dependencies.Packages {
 		pkgDeps[d.Locator] = Package{
 			Loc: d.Locator,
@@ -199,8 +199,10 @@ func CreateDummyApplication(locator loc.Locator, c *check.C, services ...app.App
 }
 
 var (
+	// RuntimeApplicationLoc specifies the default runtime application locator
 	RuntimeApplicationLoc = loc.MustParseLocator("gravitational.io/kubernetes:0.0.1")
-	RuntimePackageLoc     = loc.MustParseLocator("gravitational.io/planet:0.0.1")
+	// RuntimePackageLoc specifies the default runtime package locator
+	RuntimePackageLoc = loc.MustParseLocator("gravitational.io/planet:0.0.1")
 )
 
 // NewDependency is a convenience helper to create a manifest Dependency from a package locator

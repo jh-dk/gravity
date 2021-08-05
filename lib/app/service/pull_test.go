@@ -195,7 +195,7 @@ func verifyPackages(packages pack.PackageService, expected []loc.Locator, c *C) 
 		result = append(result, locators(packages)...)
 	}
 
-	c.Assert(packagesByName(result), compare.SortedSliceEquals, packagesByName(result))
+	c.Assert(packagesByName(result), compare.SortedSliceEquals, packagesByName(expected))
 }
 
 func locators(envelopes []pack.PackageEnvelope) []loc.Locator {

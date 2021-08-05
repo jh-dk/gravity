@@ -35,10 +35,7 @@ import (
 
 // SyncApp syncs the specified application and all its dependencies with registry
 func (r Syncer) SyncApp(ctx context.Context, loc loc.Locator) error {
-	err := r.checkAndSetDefaults()
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	r.setDefaults()
 	deps, err := GetAppDependencies(loc, r.AppService, r.PackService)
 	if err != nil {
 		return trace.Wrap(err)
@@ -48,10 +45,7 @@ func (r Syncer) SyncApp(ctx context.Context, loc loc.Locator) error {
 
 // Sync syncs the specified dependencies with the configured registry
 func (r Syncer) Sync(ctx context.Context, deps Dependencies) error {
-	err := r.checkAndSetDefaults()
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	r.setDefaults()
 	return r.sync(ctx, deps)
 }
 
@@ -148,15 +142,14 @@ func (r Syncer) syncApp(ctx context.Context, loc loc.Locator) error {
 	return trace.Wrap(err)
 }
 
-// checkAndSetDefaults validates the request and sets some defaults.
-func (r *Syncer) checkAndSetDefaults() error {
+// setDefaults sets defaults for this syncer value.
+func (r *Syncer) setDefaults() {
 	if r.Progress == nil {
 		r.Progress = utils.DiscardPrinter
 	}
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "sync")
 	}
-	return nil
 }
 
 func (r Syncer) unpackRemotePackage(ctx context.Context, loc loc.Locator, unpackPath string) error {

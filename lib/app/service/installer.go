@@ -38,7 +38,6 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/utils"
-	fileutils "github.com/gravitational/gravity/lib/utils"
 
 	"github.com/ghodss/yaml"
 	"github.com/gravitational/license/authority"
@@ -47,7 +46,6 @@ import (
 )
 
 func (r *Applications) getApplicationInstaller(
-	req appservice.InstallerRequest,
 	app appservice.Application,
 	apps *Applications,
 ) error {
@@ -96,8 +94,7 @@ func (r *Applications) GetAppInstaller(req appservice.InstallerRequest) (install
 		return nil, trace.Wrap(err)
 	}
 
-	var tempDir string
-	tempDir, err = ioutil.TempDir("", "installer")
+	tempDir, err := ioutil.TempDir("", "installer")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -164,7 +161,7 @@ func (r *Applications) GetAppInstaller(req appservice.InstallerRequest) (install
 	case schema.KindBundle, schema.KindCluster:
 		items, err = r.getClusterInstaller(req, *app, localApps)
 	case schema.KindApplication:
-		err = r.getApplicationInstaller(req, *app, localApps)
+		err = r.getApplicationInstaller(*app, localApps)
 	default:
 		return nil, trace.BadParameter("unsupported kind %q",
 			app.Manifest.Kind)
@@ -199,7 +196,7 @@ func (r *Applications) GetAppInstaller(req appservice.InstallerRequest) (install
 		// always returns nil
 		writer.CloseWithError(err) //nolint:errcheck
 	}()
-	return &fileutils.CleanupReadCloser{
+	return &utils.CleanupReadCloser{
 		ReadCloser: reader,
 		Cleanup: func() {
 			err := os.RemoveAll(tempDir)
