@@ -24,7 +24,6 @@ import (
 	"gopkg.in/check.v1"
 )
 
-// TODO(dima): move to lib/pack/test
 // VerifyPackages ensures that the specified package service contains
 // the expected packages.
 // No assumptions are made about other packages in the service

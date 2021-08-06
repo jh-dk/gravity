@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/google/go-cmp/cmp"
 	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
 	apptest "github.com/gravitational/gravity/lib/app/service/test"
@@ -92,15 +93,28 @@ func (*OpsSuite) TestUploadsUpdate(c *check.C) {
 
 	// verify
 	c.Assert(err, check.IsNil)
-	// TODO(dima): verify that the registry image service was operating on, contains the expected docker images
-	// verifyRegistry(registry, "testimage:0.0.1")
+	verifyRegistry(context.TODO(), c, imageService, "testimage:1.0.0")
 	packtest.VerifyPackages(to.Packages, []loc.Locator{
-		depApp.Locator(),
+		depAppLoc,
 		depPackageLoc,
 		appLoc,
 		apptest.RuntimeApplicationLoc,
 		apptest.RuntimePackageLoc,
 	}, c)
+}
+
+func verifyRegistry(ctx context.Context, c *check.C, service docker.ImageService, expectedImages ...string) {
+	images, err := service.List(ctx)
+	c.Assert(err, check.IsNil)
+	refs := make([]string, 0, len(images))
+	for _, image := range images {
+		for _, tag := range image.Tags {
+			refs = append(refs, fmt.Sprint(image.Repository, ":", tag))
+		}
+	}
+	if !cmp.Equal(refs, expectedImages) {
+		c.Error("Mismatched image references:", cmp.Diff(refs, expectedImages))
+	}
 }
 
 // Contents of the registry with a testimage:1.0.0, generated as following:

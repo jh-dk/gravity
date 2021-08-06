@@ -84,7 +84,7 @@ func (r Registry) Addr() string {
 	return r.r.Addr()
 }
 
-// Push pushes the set of images to the underyling registry
+// Push pushes the set of images to the underlying registry
 func (r *Registry) Push(c *check.C, images ...loc.DockerImage) {
 	for _, image := range images {
 		c.Assert(r.helper.Push(image.String(), r.r.Addr()), check.IsNil)

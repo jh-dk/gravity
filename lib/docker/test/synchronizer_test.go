@@ -26,16 +26,14 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"gopkg.in/check.v1"
-	. "gopkg.in/check.v1"
-
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
+	. "gopkg.in/check.v1"
 )
 
-func TestDocker(t *testing.T) { check.TestingT(t) }
+func TestDocker(t *testing.T) { TestingT(t) }
 
-var _ = check.Suite(&DockerSuite{})
+var _ = Suite(&DockerSuite{})
 
 // Set up a separate Suite for this test so we can use SetUp/TearDown phases
 type DockerSuite struct {
