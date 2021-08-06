@@ -400,7 +400,11 @@ func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string) {
 	// Figure out the registry address scheme (http or https). If the scheme
 	// was specified explicitly, keep it as-is. Otherwise, default to https
 	// unless the insecure flag was provided.
-	registryAddress := utils.EnsureScheme(req.RegistryAddress, "https")
+	defaultScheme := "https"
+	if req.Insecure {
+		defaultScheme = "http"
+	}
+	registryAddress := utils.EnsureScheme(req.RegistryAddress, defaultScheme)
 
 	// If the scheme was set explicitly to https, along with the insecure
 	// flag, ignore the certificate error (this is what Docker does too).

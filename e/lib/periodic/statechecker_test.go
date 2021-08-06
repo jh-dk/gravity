@@ -72,9 +72,9 @@ func (s *StateCheckerSuite) TearDownSuite(c *C) {
 
 func (s *StateCheckerSuite) TestStateChecker(c *C) {
 	runtimeApp1 := apptest.RuntimeApplication(loc.MustParseLocator("gravitational.io/runtime:0.0.1"),
-		loc.MustParseLocator("gravitational.io/planet:0.0.1"))
+		loc.MustParseLocator("gravitational.io/planet:0.0.1")).Build()
 	app1 := apptest.CreateApplication(apptest.AppRequest{
-		App:      apptest.ClusterApplication(loc.MustParseLocator("gravitational.io/app:1.0.0"), runtimeApp1),
+		App:      apptest.ClusterApplication(loc.MustParseLocator("gravitational.io/app:1.0.0"), runtimeApp1).Build(),
 		Packages: s.localServices.Packages,
 		Apps:     s.localServices.Apps,
 	}, c)
@@ -108,8 +108,8 @@ func (s *StateCheckerSuite) TestStateChecker(c *C) {
 
 	locApp2 := loc.MustParseLocator("gravitational.io/app:1.0.2")
 	runtimeApp2 := apptest.RuntimeApplication(loc.MustParseLocator("gravitational.io/runtime:0.0.2"),
-		loc.MustParseLocator("gravitational.io/planet:0.0.2"))
-	clusterApp2 := apptest.ClusterApplication(locApp2, runtimeApp2)
+		loc.MustParseLocator("gravitational.io/planet:0.0.2")).Build()
+	clusterApp2 := apptest.ClusterApplication(locApp2, runtimeApp2).Build()
 	apptest.CreateApplication(apptest.AppRequest{
 		App:      clusterApp2,
 		Packages: s.localServices.Packages,

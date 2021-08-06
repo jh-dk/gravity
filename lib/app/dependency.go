@@ -66,6 +66,10 @@ func GetDependencies(req GetDependenciesRequest) (result *Dependencies, err erro
 	if err := state.finalize(req.Pack); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	req.FieldLogger.WithFields(log.Fields{
+		"result":  state.deps,
+		"package": req.App.Package,
+	}).Info("Get dependencies.")
 	return &state.deps, nil
 }
 
@@ -134,7 +138,6 @@ func (r *GetDependenciesRequest) checkAndSetDefaults() error {
 
 func (r GetDependenciesRequest) getDependencies(app Application, state *state) error {
 	logger := r.WithField("app", app.Package)
-	logger.Info("Get dependencies.")
 	packageDeps := loc.Deduplicate(app.Manifest.Dependencies.GetPackages())
 	packageDeps = append(packageDeps, app.Manifest.NodeProfiles.RuntimePackages()...)
 	logger.WithField("pkgs", packageDeps).Debug("Package dependencies.")

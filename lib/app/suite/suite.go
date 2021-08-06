@@ -304,8 +304,9 @@ func (r *AppsSuite) CreatesApplicationInstaller(c *C) {
 	// setup
 	apps := r.NewService(c, nil, nil)
 	mainAppLoc := loc.MustParseLocator("gravitational.io/app-main:0.0.1")
-	mainApp := apptest.DefaultClusterApplication(mainAppLoc)
-	mainApp.Manifest.Dependencies.Packages = append(mainApp.Manifest.Dependencies.Packages, apptest.NewDependency("gravitational.io/gravity:0.0.1"))
+	mainApp := apptest.DefaultClusterApplication(mainAppLoc).
+		WithSchemaPackageDependencies(loc.MustParseLocator("gravitational.io/gravity:0.0.1")).
+		Build()
 	apptest.CreateApplication(apptest.AppRequest{
 		App:      mainApp,
 		Apps:     apps,
@@ -368,9 +369,8 @@ metadata:
 
 func (r *AppsSuite) CreatesApplication(c *C) {
 	apps := r.NewService(c, nil, nil)
-	app := loc.MustParseLocator("gravitational.io/example-app:0.0.1")
 	apptest.CreateApplication(apptest.AppRequest{
-		App:      apptest.DefaultClusterApplication(app),
+		App:      apptest.DefaultClusterApplication(loc.MustParseLocator("gravitational.io/example-app:0.0.1")).Build(),
 		Packages: r.Packages,
 		Apps:     apps,
 	}, c)
@@ -380,7 +380,7 @@ func (r *AppsSuite) DeletesApplication(c *C) {
 	apps := r.NewService(c, nil, nil)
 	loc := loc.MustParseLocator("gravitational.io/example-app:0.0.1")
 	apptest.CreateApplication(apptest.AppRequest{
-		App:      apptest.DefaultClusterApplication(loc),
+		App:      apptest.DefaultClusterApplication(loc).Build(),
 		Packages: r.Packages,
 		Apps:     apps,
 	}, c)
@@ -398,11 +398,12 @@ func (r *AppsSuite) DeletesApplication(c *C) {
 func (r *AppsSuite) ResolvesManifest(c *C) {
 	apps := r.NewService(c, nil, nil)
 	runtimeAppLoc := loc.MustParseLocator("gravitational.io/app-template:0.0.1")
-	dependencies := []schema.Dependency{apptest.NewDependency("gravitational.io/package:0.0.1")}
-	runtimeApp := apptest.RuntimeApplication(runtimeAppLoc, apptest.RuntimePackageLoc)
-	runtimeApp.Dependencies.Packages = dependencies
+	dependencies := schema.Dependencies{Packages: []schema.Dependency{apptest.NewDependency("gravitational.io/package:0.0.1")}}
+	runtimeApp := apptest.RuntimeApplication(runtimeAppLoc, apptest.RuntimePackageLoc).
+		WithSchemaDependencies(dependencies).
+		Build()
 	mainAppLoc := loc.MustParseLocator("gravitational.io/sample:0.0.1")
-	mainApp := apptest.ClusterApplication(mainAppLoc, runtimeApp)
+	mainApp := apptest.ClusterApplication(mainAppLoc, runtimeApp).Build()
 	mainApp.Manifest.Installer.Flavors = schema.Flavors{
 		Prompt: "Test flavors",
 		Items: []schema.Flavor{
@@ -434,9 +435,7 @@ func (r *AppsSuite) ResolvesManifest(c *C) {
 	}, c)
 
 	c.Assert(app.Manifest.NodeProfiles, HasLen, 1)
-	c.Assert(app.Manifest.Dependencies, DeepEquals, schema.Dependencies{
-		Packages: dependencies,
-	})
+	c.Assert(app.Manifest.Dependencies, DeepEquals, dependencies)
 
 	worker, err := app.Manifest.NodeProfiles.ByName("worker")
 	c.Assert(err, IsNil)

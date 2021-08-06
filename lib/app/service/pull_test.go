@@ -25,12 +25,12 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	apptest "github.com/gravitational/gravity/lib/app/service/test"
 	"github.com/gravitational/gravity/lib/blob/fs"
-	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
+	packtest "github.com/gravitational/gravity/lib/pack/test"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
@@ -96,13 +96,14 @@ func (s *PullerSuite) TestPullAppInParallel(c *C) {
 
 func (s *PullerSuite) pullApp(c *C, parallel int) {
 	clusterAppLoc := loc.MustParseLocator("gravitational.io/app:0.0.2")
-	existingLoc := apptest.NewDependency("example.com/existing:0.0.1")
-	clusterApp := apptest.DefaultClusterApplication(clusterAppLoc)
-	clusterApp.Manifest.Dependencies.Packages = append(clusterApp.Manifest.Dependencies.Packages, []schema.Dependency{
-		apptest.NewDependency("example.com/new:0.0.1"),
-		apptest.NewDependency("example.com/new:0.0.2"),
-		existingLoc,
-	}...)
+	existingLoc := loc.MustParseLocator("example.com/existing:0.0.1")
+	clusterApp := apptest.DefaultClusterApplication(clusterAppLoc).
+		WithSchemaPackageDependencies(
+			loc.MustParseLocator("example.com/new:0.0.1"),
+			loc.MustParseLocator("example.com/new:0.0.2"),
+			existingLoc).
+		Build()
+	clusterApp.Manifest.Dependencies.Packages = append(clusterApp.Manifest.Dependencies.Packages, []schema.Dependency{}...)
 	apptest.CreateApplication(apptest.AppRequest{
 		App:      clusterApp,
 		Packages: s.srcPack,
@@ -110,7 +111,7 @@ func (s *PullerSuite) pullApp(c *C, parallel int) {
 	}, c)
 	// `existing` package is also available in the destination service
 	apptest.CreatePackage(apptest.PackageRequest{
-		Package:  apptest.Package{Loc: existingLoc.Locator},
+		Package:  apptest.Package{Loc: existingLoc},
 		Packages: s.dstPack,
 	}, c)
 
@@ -125,7 +126,7 @@ func (s *PullerSuite) pullApp(c *C, parallel int) {
 	err := puller.PullApp(context.TODO(), clusterAppLoc)
 	c.Assert(err, IsNil)
 
-	verifyPackages(s.dstPack, []loc.Locator{
+	packtest.VerifyPackages(s.dstPack, []loc.Locator{
 		loc.MustParseLocator("gravitational.io/app:0.0.2"),
 		apptest.RuntimeApplicationLoc,
 		apptest.RuntimePackageLoc,
@@ -183,31 +184,3 @@ func setupServices(c *C) (storage.Backend, pack.PackageService, *Applications) {
 
 	return backend, packService, appService
 }
-
-func verifyPackages(packages pack.PackageService, expected []loc.Locator, c *C) {
-	repositories, err := packages.GetRepositories()
-	c.Assert(err, IsNil)
-
-	var result []loc.Locator
-	for _, repository := range repositories {
-		packages, err := packages.GetPackages(repository)
-		c.Assert(err, IsNil)
-		result = append(result, locators(packages)...)
-	}
-
-	c.Assert(packagesByName(result), compare.SortedSliceEquals, packagesByName(expected))
-}
-
-func locators(envelopes []pack.PackageEnvelope) []loc.Locator {
-	out := make([]loc.Locator, 0, len(envelopes))
-	for _, env := range envelopes {
-		out = append(out, env.Locator)
-	}
-	return out
-}
-
-type packagesByName []loc.Locator
-
-func (r packagesByName) Len() int           { return len(r) }
-func (r packagesByName) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
-func (r packagesByName) Less(i, j int) bool { return r[i].String() < r[j].String() }

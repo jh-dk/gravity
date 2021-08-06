@@ -19,10 +19,22 @@ package cli
 import (
 	"archive/tar"
 	"bytes"
+	"context"
+	"fmt"
 	"io/ioutil"
 
+	libapp "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/app/service"
+	apptest "github.com/gravitational/gravity/lib/app/service/test"
 	"github.com/gravitational/gravity/lib/archive"
+	"github.com/gravitational/gravity/lib/docker"
+	dockertest "github.com/gravitational/gravity/lib/docker/test"
+	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/localenv"
+	packtest "github.com/gravitational/gravity/lib/pack/test"
+	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/sirupsen/logrus"
 	"gopkg.in/check.v1"
 )
 
@@ -30,20 +42,38 @@ type OpsSuite struct{}
 
 var _ = check.Suite(&OpsSuite{})
 
-/*
 func (*OpsSuite) TestUploadsUpdate(c *check.C) {
+	client, err := docker.NewClientFromEnv()
+	if err != nil {
+		c.Skip(fmt.Sprint("This test requires docker: ", err))
+	}
+
 	// setup
 	from, to := service.NewTestServices(c.MkDir(), c), service.NewTestServices(c.MkDir(), c)
 	depPackageLoc := loc.MustParseLocator("example.com/package:1.0.0")
-	depAppLoc := loc.MustParseLocator("example.com/dep-app:1.0.0")
-	appLoc := loc.MustParseLocator("example.com/app:1.0.0")
-	depPackage := apptest.CreatePackage(apptest.PackageRequest{
+	depAppLoc := loc.MustParseLocator("gravitational.io/dep-app:1.0.0")
+	appLoc := loc.MustParseLocator("gravitational.io/app:1.0.0")
+	depApp := apptest.SystemApplication(depAppLoc).
+		WithSchemaPackageDependencies(depPackageLoc).
+		Build()
+	clusterApp := apptest.DefaultClusterApplication(appLoc).
+		WithAppDependencies(depApp).
+		WithItems(registryTestimage_1_0_0...).
+		Build()
+	app := apptest.CreateApplication(apptest.AppRequest{
+		App:      clusterApp,
+		Apps:     from.Apps,
 		Packages: from.Packages,
-		Loc:      depPackageLoc,
 	}, c)
-	depApp := apptest.CreateApplicationWithDockerImage(from.Apps, depAppLoc)
-	app := apptest.CreateApplicationWithDockerImage(from.Apps, appLoc)
-	imageService := docker.NewTestImageService()
+
+	logger := logrus.WithField("test", "TestUploadsUpdate")
+	synchronizer := docker.NewSynchronizer(logger, client, utils.DiscardProgress)
+	registry := dockertest.NewRegistry(c.MkDir(), synchronizer, c)
+	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
+		RegistryAddress: registry.Addr(),
+		Insecure:        true,
+	})
+	c.Assert(err, check.IsNil)
 	puller := libapp.Puller{
 		SrcPack: from.Packages,
 		SrcApp:  from.Apps,
@@ -54,19 +84,24 @@ func (*OpsSuite) TestUploadsUpdate(c *check.C) {
 		PackService:  from.Packages,
 		AppService:   from.Apps,
 		ImageService: imageService,
+		Progress:     localenv.Silent(true),
 	}
 
 	// exercise
-	err := uploadApplicationUpdate(context.TODO(), puller, syncer, []docker.ImageService{imageService}, app)
+	err = uploadApplicationUpdate(context.TODO(), puller, syncer, []docker.ImageService{imageService}, *app)
 
 	// verify
 	c.Assert(err, check.IsNil)
 	// TODO(dima): verify that the registry image service was operating on, contains the expected docker images
-	verifyRegistry(registry, depApp, app)
-	// TODO(dima): verify that the destination package/application services contain the expected packages
-	verifyPackages(to, depApp, depPackage, app)
+	// verifyRegistry(registry, "testimage:0.0.1")
+	packtest.VerifyPackages(to.Packages, []loc.Locator{
+		depApp.Locator(),
+		depPackageLoc,
+		appLoc,
+		apptest.RuntimeApplicationLoc,
+		apptest.RuntimePackageLoc,
+	}, c)
 }
-*/
 
 // Contents of the registry with a testimage:1.0.0, generated as following:
 //
@@ -82,67 +117,20 @@ func (*OpsSuite) TestUploadsUpdate(c *check.C) {
 // The contents will be expanded in the following layout:
 // <root>/registry/docker/registry/v2/...
 //nolint:revive,stylecheck // var-naming
-var registryTestimage_1_0_0 = map[string]*archive.Item{
-	"registry/": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000775,
-			Name:     "registry/",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/blobs": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/blobs",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/blobs/sha256": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/blobs/sha256",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/blobs/sha256/82": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/blobs/sha256/82",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/blobs/sha256/82/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/blobs/sha256/82/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/blobs/sha256/82/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565/data": &archive.Item{
+var registryTestimage_1_0_0 = []*archive.Item{
+	archive.DirItem("registry/"),
+	archive.DirItem("registry/docker"),
+	archive.DirItem("registry/docker/registry"),
+	archive.DirItem("registry/docker/registry/v2"),
+	archive.DirItem("registry/docker/registry/v2/blobs"),
+	archive.DirItem("registry/docker/registry/v2/blobs/sha256"),
+	archive.DirItem("registry/docker/registry/v2/blobs/sha256/82"),
+	archive.DirItem("registry/docker/registry/v2/blobs/sha256/82/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565"),
+	{
 		Header: tar.Header{
 			Mode: 0o644,
 			Name: "registry/docker/registry/v2/blobs/sha256/82/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565/data",
+			Size: 524,
 		},
 		Data: ioutil.NopCloser(bytes.NewReader([]byte{
 			0x7B, 0xA, 0x20, 0x20, 0x20, 0x22, 0x73, 0x63, 0x68, 0x65,
@@ -197,26 +185,16 @@ var registryTestimage_1_0_0 = map[string]*archive.Item{
 			0x64, 0x30, 0x32, 0x37, 0x61, 0x35, 0x66, 0x36, 0x61, 0x63,
 			0x62, 0x35, 0x39, 0x33, 0x31, 0x35, 0x65, 0x61, 0x22, 0xA,
 			0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x7D, 0xA, 0x20, 0x20,
-			0x20, 0x5D, 0xA, 0x7D})),
+			0x20, 0x5D, 0xA, 0x7D,
+		})),
 	},
-	"registry/docker/registry/v2/blobs/sha256/e4": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/blobs/sha256/e4",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/blobs/sha256/e4/e464dfbd8754f3dec4a38ef3014c0e4a25ec883ccbc7c5d027a5f6acb59315ea": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/blobs/sha256/e4/e464dfbd8754f3dec4a38ef3014c0e4a25ec883ccbc7c5d027a5f6acb59315ea",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/blobs/sha256/e4/e464dfbd8754f3dec4a38ef3014c0e4a25ec883ccbc7c5d027a5f6acb59315ea/data": &archive.Item{
+	archive.DirItem("registry/docker/registry/v2/blobs/sha256/e4"),
+	archive.DirItem("registry/docker/registry/v2/blobs/sha256/e4/e464dfbd8754f3dec4a38ef3014c0e4a25ec883ccbc7c5d027a5f6acb59315ea"),
+	{
 		Header: tar.Header{
 			Mode: 0o644,
 			Name: "registry/docker/registry/v2/blobs/sha256/e4/e464dfbd8754f3dec4a38ef3014c0e4a25ec883ccbc7c5d027a5f6acb59315ea/data",
+			Size: 113,
 		},
 		Data: ioutil.NopCloser(bytes.NewReader([]byte{
 			0x1F, 0x8B, 0x8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xFF,
@@ -230,26 +208,16 @@ var registryTestimage_1_0_0 = map[string]*archive.Item{
 			0xDD, 0xFA, 0xAD, 0x1A, 0xAB, 0x7F, 0x8D, 0xE3, 0xE, 0x42,
 			0x89, 0xC4, 0x69, 0xEF, 0x8A, 0x10, 0x42, 0x8, 0x5B, 0xFB,
 			0x5, 0x0, 0x0, 0xFF, 0xFF, 0xE8, 0xA2, 0xE1, 0xD8, 0x0,
-			0x8, 0x0, 0x0})),
+			0x8, 0x0, 0x0,
+		})),
 	},
-	"registry/docker/registry/v2/blobs/sha256/ff": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/blobs/sha256/ff",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/blobs/sha256/ff/ff5e2a90a1ff88b93ca13286dac7eb1898920db12d46b54649600e73c04299c8": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/blobs/sha256/ff/ff5e2a90a1ff88b93ca13286dac7eb1898920db12d46b54649600e73c04299c8",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/blobs/sha256/ff/ff5e2a90a1ff88b93ca13286dac7eb1898920db12d46b54649600e73c04299c8/data": &archive.Item{
+	archive.DirItem("registry/docker/registry/v2/blobs/sha256/ff"),
+	archive.DirItem("registry/docker/registry/v2/blobs/sha256/ff/ff5e2a90a1ff88b93ca13286dac7eb1898920db12d46b54649600e73c04299c8"),
+	{
 		Header: tar.Header{
 			Mode: 0o644,
 			Name: "registry/docker/registry/v2/blobs/sha256/ff/ff5e2a90a1ff88b93ca13286dac7eb1898920db12d46b54649600e73c04299c8/data",
+			Size: 1176,
 		},
 		Data: ioutil.NopCloser(bytes.NewReader([]byte{
 			0x7B, 0x22, 0x61, 0x72, 0x63, 0x68, 0x69, 0x74, 0x65, 0x63,
@@ -369,47 +337,19 @@ var registryTestimage_1_0_0 = map[string]*archive.Item{
 			0x34, 0x36, 0x31, 0x66, 0x34, 0x39, 0x30, 0x66, 0x61, 0x65,
 			0x61, 0x34, 0x38, 0x34, 0x61, 0x62, 0x35, 0x37, 0x61, 0x61,
 			0x38, 0x35, 0x39, 0x33, 0x61, 0x37, 0x31, 0x36, 0x62, 0x66,
-			0x37, 0x35, 0x22, 0x5D, 0x7D, 0x7D})),
+			0x37, 0x35, 0x22, 0x5D, 0x7D, 0x7D,
+		})),
 	},
-	"registry/docker/registry/v2/repositories": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_layers": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_layers",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_layers/sha256": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_layers/sha256",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_layers/sha256/e464dfbd8754f3dec4a38ef3014c0e4a25ec883ccbc7c5d027a5f6acb59315ea": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_layers/sha256/e464dfbd8754f3dec4a38ef3014c0e4a25ec883ccbc7c5d027a5f6acb59315ea",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_layers/sha256/e464dfbd8754f3dec4a38ef3014c0e4a25ec883ccbc7c5d027a5f6acb59315ea/link": &archive.Item{
+	archive.DirItem("registry/docker/registry/v2/repositories"),
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage"),
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_layers"),
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_layers/sha256"),
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_layers/sha256/e464dfbd8754f3dec4a38ef3014c0e4a25ec883ccbc7c5d027a5f6acb59315ea"),
+	{
 		Header: tar.Header{
 			Mode: 0o644,
 			Name: "registry/docker/registry/v2/repositories/testimage/_layers/sha256/e464dfbd8754f3dec4a38ef3014c0e4a25ec883ccbc7c5d027a5f6acb59315ea/link",
+			Size: 71,
 		},
 		Data: ioutil.NopCloser(bytes.NewReader([]byte{
 			0x73, 0x68, 0x61, 0x32, 0x35, 0x36, 0x3A, 0x65, 0x34, 0x36,
@@ -419,19 +359,15 @@ var registryTestimage_1_0_0 = map[string]*archive.Item{
 			0x35, 0x65, 0x63, 0x38, 0x38, 0x33, 0x63, 0x63, 0x62, 0x63,
 			0x37, 0x63, 0x35, 0x64, 0x30, 0x32, 0x37, 0x61, 0x35, 0x66,
 			0x36, 0x61, 0x63, 0x62, 0x35, 0x39, 0x33, 0x31, 0x35, 0x65,
-			0x61})),
+			0x61,
+		})),
 	},
-	"registry/docker/registry/v2/repositories/testimage/_layers/sha256/ff5e2a90a1ff88b93ca13286dac7eb1898920db12d46b54649600e73c04299c8": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_layers/sha256/ff5e2a90a1ff88b93ca13286dac7eb1898920db12d46b54649600e73c04299c8",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_layers/sha256/ff5e2a90a1ff88b93ca13286dac7eb1898920db12d46b54649600e73c04299c8/link": &archive.Item{
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_layers/sha256/ff5e2a90a1ff88b93ca13286dac7eb1898920db12d46b54649600e73c04299c8"),
+	{
 		Header: tar.Header{
 			Mode: 0o644,
 			Name: "registry/docker/registry/v2/repositories/testimage/_layers/sha256/ff5e2a90a1ff88b93ca13286dac7eb1898920db12d46b54649600e73c04299c8/link",
+			Size: 71,
 		},
 		Data: ioutil.NopCloser(bytes.NewReader([]byte{
 			0x73, 0x68, 0x61, 0x32, 0x35, 0x36, 0x3A, 0x66, 0x66, 0x35,
@@ -441,40 +377,18 @@ var registryTestimage_1_0_0 = map[string]*archive.Item{
 			0x38, 0x39, 0x32, 0x30, 0x64, 0x62, 0x31, 0x32, 0x64, 0x34,
 			0x36, 0x62, 0x35, 0x34, 0x36, 0x34, 0x39, 0x36, 0x30, 0x30,
 			0x65, 0x37, 0x33, 0x63, 0x30, 0x34, 0x32, 0x39, 0x39, 0x63,
-			0x38})),
+			0x38,
+		})),
 	},
-	"registry/docker/registry/v2/repositories/testimage/_manifests": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_manifests",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_manifests/revisions": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_manifests/revisions",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_manifests/revisions/sha256": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_manifests/revisions/sha256",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_manifests/revisions/sha256/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_manifests/revisions/sha256/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_manifests/revisions/sha256/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565/link": &archive.Item{
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_manifests"),
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_manifests/revisions"),
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_manifests/revisions/sha256"),
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_manifests/revisions/sha256/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565"),
+	{
 		Header: tar.Header{
 			Mode: 0o644,
 			Name: "registry/docker/registry/v2/repositories/testimage/_manifests/revisions/sha256/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565/link",
+			Size: 71,
 		},
 		Data: ioutil.NopCloser(bytes.NewReader([]byte{
 			0x73, 0x68, 0x61, 0x32, 0x35, 0x36, 0x3A, 0x38, 0x32, 0x30,
@@ -484,33 +398,17 @@ var registryTestimage_1_0_0 = map[string]*archive.Item{
 			0x38, 0x34, 0x65, 0x39, 0x30, 0x39, 0x62, 0x36, 0x64, 0x35,
 			0x35, 0x38, 0x39, 0x30, 0x39, 0x65, 0x62, 0x64, 0x37, 0x62,
 			0x38, 0x64, 0x37, 0x39, 0x34, 0x66, 0x36, 0x33, 0x35, 0x36,
-			0x35})),
+			0x35,
+		})),
 	},
-	"registry/docker/registry/v2/repositories/testimage/_manifests/tags": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_manifests/tags",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/current": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/current",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/current/link": &archive.Item{
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_manifests/tags"),
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0"),
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/current"),
+	{
 		Header: tar.Header{
 			Mode: 0o644,
 			Name: "registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/current/link",
+			Size: 71,
 		},
 		Data: ioutil.NopCloser(bytes.NewReader([]byte{
 			0x73, 0x68, 0x61, 0x32, 0x35, 0x36, 0x3A, 0x38, 0x32, 0x30,
@@ -520,33 +418,17 @@ var registryTestimage_1_0_0 = map[string]*archive.Item{
 			0x38, 0x34, 0x65, 0x39, 0x30, 0x39, 0x62, 0x36, 0x64, 0x35,
 			0x35, 0x38, 0x39, 0x30, 0x39, 0x65, 0x62, 0x64, 0x37, 0x62,
 			0x38, 0x64, 0x37, 0x39, 0x34, 0x66, 0x36, 0x33, 0x35, 0x36,
-			0x35})),
+			0x35,
+		})),
 	},
-	"registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/index": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/index",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/index/sha256": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/index/sha256",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/index/sha256/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/index/sha256/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565",
-			Typeflag: tar.TypeDir,
-		},
-	},
-	"registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/index/sha256/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565/link": &archive.Item{
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/index"),
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/index/sha256"),
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/index/sha256/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565"),
+	{
 		Header: tar.Header{
 			Mode: 0o644,
 			Name: "registry/docker/registry/v2/repositories/testimage/_manifests/tags/1.0.0/index/sha256/820a89fea264d8eaacbd82b4ed3cbebbe84e909b6d558909ebd7b8d794f63565/link",
+			Size: 71,
 		},
 		Data: ioutil.NopCloser(bytes.NewReader([]byte{
 			0x73, 0x68, 0x61, 0x32, 0x35, 0x36, 0x3A, 0x38, 0x32, 0x30,
@@ -556,13 +438,8 @@ var registryTestimage_1_0_0 = map[string]*archive.Item{
 			0x38, 0x34, 0x65, 0x39, 0x30, 0x39, 0x62, 0x36, 0x64, 0x35,
 			0x35, 0x38, 0x39, 0x30, 0x39, 0x65, 0x62, 0x64, 0x37, 0x62,
 			0x38, 0x64, 0x37, 0x39, 0x34, 0x66, 0x36, 0x33, 0x35, 0x36,
-			0x35})),
+			0x35,
+		})),
 	},
-	"registry/docker/registry/v2/repositories/testimage/_uploads": &archive.Item{
-		Header: tar.Header{
-			Mode:     0o20000000755,
-			Name:     "registry/docker/registry/v2/repositories/testimage/_uploads",
-			Typeflag: tar.TypeDir,
-		},
-	},
+	archive.DirItem("registry/docker/registry/v2/repositories/testimage/_uploads"),
 }

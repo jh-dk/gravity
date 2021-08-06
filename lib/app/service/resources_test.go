@@ -28,7 +28,7 @@ func (r *ResourceSuite) SetUpTest(c *C) {
 func (r *ResourceSuite) TestTranslatesResources(c *C) {
 	appPackage := loc.MustParseLocator("gravitational.io/app:1.0.0")
 	apptest.CreateApplication(apptest.AppRequest{
-		App:      apptest.DefaultClusterApplication(appPackage),
+		App:      apptest.DefaultClusterApplication(appPackage).Build(),
 		Packages: r.pack,
 		Apps:     r.apps,
 	}, c)
