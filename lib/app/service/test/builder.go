@@ -19,7 +19,6 @@ package test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -123,7 +122,7 @@ func (r App) Build() App { return r }
 type App struct {
 	// Manifest describes the application to create
 	Manifest schema.Manifest
-	// Base describes the base (runtime) application
+	// Base describes the optional base (runtime) application
 	Base *App
 	// Labels optionally specifies application package labels
 	Labels map[string]string
@@ -141,15 +140,7 @@ func CreateApplication(req AppRequest, c *check.C) (app *app.Application) {
 	if req.App.Base != nil {
 		collectBaseDependencies(*req.App.Base, pkgDeps, appDeps, c)
 	}
-	// collectManifestDependencies(req.App.Manifest, pkgDeps, appDeps)
 	collectDependencies(req.App, pkgDeps, appDeps)
-	// // override with dependencies from the configuration
-	// for _, d := range req.App.Dependencies.Packages {
-	// 	pkgDeps[d.Loc] = d
-	// }
-	// for _, d := range req.App.Dependencies.Apps {
-	// 	appDeps[d.Manifest.Locator()] = d
-	// }
 	for _, pkg := range pkgDeps {
 		CreatePackage(PackageRequest{
 			Package:  pkg,
@@ -157,23 +148,18 @@ func CreateApplication(req AppRequest, c *check.C) (app *app.Application) {
 		}, c)
 	}
 	for _, app := range appDeps {
-		fmt.Println("Create application ", app.Manifest.Locator())
 		data := CreatePackageData(ApplicationLayout(app, c), c)
 		_, err := req.Apps.CreateApp(app.Manifest.Locator(), &data, app.Labels)
 		c.Assert(err, check.IsNil)
 	}
-
-	fmt.Println("Create application ", req.App.Manifest.Locator())
 	data := CreatePackageData(ApplicationLayout(req.App, c), c)
 	app, err := req.Apps.CreateApp(req.App.Manifest.Locator(), &data, req.App.Labels)
 	c.Assert(err, check.IsNil)
-
 	return app
 }
 
 // CreatePackage creates a new test package as described by the given request
 func CreatePackage(req PackageRequest, c *check.C) *pack.PackageEnvelope {
-	fmt.Println("Create package ", req.Package.Loc)
 	items := req.Package.Items
 	if len(items) == 0 {
 		// Create a package with a test payload
@@ -187,18 +173,6 @@ func CreatePackage(req PackageRequest, c *check.C) *pack.PackageEnvelope {
 	c.Assert(pkg, check.NotNil)
 
 	return pkg
-}
-
-// CreateDummyApplication creates an application with a valid manifest, but fake content.
-// It returns the application created in the last service specified with services
-func CreateDummyApplication(locator loc.Locator, c *check.C, services ...app.Applications) (result *app.Application) {
-	for _, s := range services {
-		result = CreateApplication(AppRequest{
-			App:  DefaultClusterApplication(locator).Build(),
-			Apps: s,
-		}, c)
-	}
-	return result
 }
 
 var (
@@ -429,20 +403,11 @@ spec:
 	return archive.ItemFromString("resources/resources.yaml", resourceBytes)
 }
 
-// CreateApplicationFromData ??
+// CreateApplicationFromData creates a new test application in the given application service
+// from the specified files
 func CreateApplicationFromData(apps app.Applications, locator loc.Locator, files []*archive.Item, c *check.C) *app.Application {
 	data := CreatePackageData(files, c)
-	return CreateApplicationFromBinaryData(apps, locator, data, c)
-}
-
-// CreateApplicationFromBinaryData ??
-func CreateApplicationFromBinaryData(apps app.Applications, locator loc.Locator, data bytes.Buffer, c *check.C) *app.Application {
-	var labels map[string]string
-	app, err := apps.CreateApp(locator, &data, labels)
-	c.Assert(err, check.IsNil)
-	c.Assert(app, check.NotNil)
-
-	return app
+	return createApplicationFromBinaryData(apps, locator, data, c)
 }
 
 // CreatePackageData generates and returns a new tarball with the specified contents
@@ -466,6 +431,15 @@ func ApplicationLayout(app App, c *check.C) []*archive.Item {
 	}, app.Items...)
 }
 
+func createApplicationFromBinaryData(apps app.Applications, locator loc.Locator, data bytes.Buffer, c *check.C) *app.Application {
+	var labels map[string]string
+	app, err := apps.CreateApp(locator, &data, labels)
+	c.Assert(err, check.IsNil)
+	c.Assert(app, check.NotNil)
+
+	return app
+}
+
 func collectBaseDependencies(base App, pkgDeps map[loc.Locator]Package, appDeps map[loc.Locator]App, c *check.C) {
 	appDeps[base.Manifest.Locator()] = base
 	// Add runtime package to dependencies
@@ -480,11 +454,6 @@ func collectBaseDependencies(base App, pkgDeps map[loc.Locator]Package, appDeps 
 func collectDependencies(app App, pkgDeps map[loc.Locator]Package, appDeps map[loc.Locator]App) {
 	collectManifestDependencies(app.Manifest, pkgDeps, appDeps)
 	overrideDependencies(app.Dependencies, pkgDeps, appDeps)
-	// // apply dependency overrides if configured
-	// for _, app := range app.Dependencies.Apps {
-	// 	appDeps[app.Manifest.Locator()] = app
-	// 	collectDependencies(app, pkgDeps, appDeps)
-	// }
 }
 
 func collectManifestDependencies(m schema.Manifest, pkgDeps map[loc.Locator]Package, appDeps map[loc.Locator]App) {

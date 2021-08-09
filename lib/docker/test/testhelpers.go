@@ -46,14 +46,14 @@ func NewRegistry(dir string, s *docker.Synchronizer, c *check.C) *Registry {
 }
 
 // GenerateDockerImages generates a set of docker image (subject to size)
-func GenerateDockerImages(client *dockerapi.Client, repoName string, size int, c *check.C) []loc.DockerImage {
+func GenerateDockerImages(client *dockerapi.Client, repository string, numImages int, c *check.C) []loc.DockerImage {
 	// Use a predictable tagging scheme
 	imageTag := func(i int) string {
 		return fmt.Sprintf("v0.0.%d", i)
 	}
-	images := make([]loc.DockerImage, 0, size)
-	for i := 0; i < size; i++ {
-		image := GenerateDockerImage(client, repoName, imageTag(i), c)
+	images := make([]loc.DockerImage, 0, numImages)
+	for i := 0; i < numImages; i++ {
+		image := GenerateDockerImage(client, repository, imageTag(i), c)
 		images = append(images, image)
 	}
 	return images
@@ -61,9 +61,9 @@ func GenerateDockerImages(client *dockerapi.Client, repoName string, size int, c
 
 // GenerateDockerImage generates a test docker image with unique contents
 // in the specified repository and given a tag
-func GenerateDockerImage(client *dockerapi.Client, repoName, tag string, c *check.C) loc.DockerImage {
+func GenerateDockerImage(client *dockerapi.Client, repository, tag string, c *check.C) loc.DockerImage {
 	image := loc.DockerImage{
-		Repository: repoName,
+		Repository: repository,
 		Tag:        tag,
 	}
 	imageName := image.String()
