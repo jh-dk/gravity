@@ -285,7 +285,7 @@ func ItemFromString(path, value string) *Item {
 func DirItem(path string) *Item {
 	return &Item{
 		Header: tar.Header{
-			Name:     strings.TrimSuffix(path, "/") + "/",
+			Name:     path + "/",
 			Typeflag: tar.TypeDir,
 			Mode:     defaults.SharedDirMask,
 			Uid:      defaults.ArchiveUID,

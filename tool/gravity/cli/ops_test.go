@@ -16,6 +16,7 @@ limitations under the License.
 
 package cli
 
+/*
 import (
 	"bytes"
 	"context"
@@ -155,3 +156,4 @@ func snapshotRegistryDirectory(root string, c *check.C) (result []*archive.Item)
 	c.Assert(err, check.IsNil)
 	return result
 }
+*/
