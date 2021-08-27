@@ -577,10 +577,6 @@ extensions:
   kubernetes:
     disabled: false
 
-  # This setting will not install the Tiller application
-  catalog:
-    disabled: false
-
 # This section specifies the Cluster lifecycle hooks, i.e. the ability to execute
 # custom code in response to lifecycle events.
 #
@@ -982,7 +978,7 @@ sudo gravity license install --from-file=/tmp/license.pem
 ## System Extensions
 
 By default, a Cluster Image contains several system services to provide
-Cluster logging, monitoring and application catalog (via Tiller) functionality.
+Cluster logging, monitoring and application catalog functionality.
 You may want to disable any of these components if you prefer to replace them with a solution of your choice. To do that, define the following section in the
 Image Manifest:
 
@@ -1000,10 +996,6 @@ extensions:
 
   # This setting will hide Kubernetes tab in the Cluster UI
   kubernetes:
-    disabled: true
-
-  # This setting will not install the Tiller application
-  catalog:
     disabled: true
 
   # This setting will disable the OpsCenter UI and the WebInstallWizard UI

@@ -1152,8 +1152,6 @@ const (
 	LoggingAppName = "logging-app"
 	// MonitoringAppName is the name of the monitoring application
 	MonitoringAppName = "monitoring-app"
-	// TillerAppName is the name of the tiller application
-	TillerAppName = "tiller-app"
 	// StorageAppName is the name of the gravity application with OpenEBS
 	StorageAppName = "storage-app"
 	// IngressAppName is the name of the ingress application

@@ -431,11 +431,6 @@ func (m Manifest) PrivilegedEnabled() bool {
 	return m.SystemOptions != nil && m.SystemOptions.AllowPrivileged || m.OpenEBSEnabled()
 }
 
-// CatalogDisabled returns true if the application catalog feature is disabled.
-func (m Manifest) CatalogDisabled() bool {
-	return m.Extensions != nil && m.Extensions.Catalog != nil && m.Extensions.Catalog.Disabled
-}
-
 // OpsCenterDisabled returns true if the Ops Center is disabled.
 func (m Manifest) OpsCenterDisabled() bool {
 	return m.Extensions != nil && m.Extensions.OpsCenter != nil && m.Extensions.OpsCenter.Disabled
@@ -1186,8 +1181,6 @@ type Extensions struct {
 	Kubernetes *KubernetesExtension `json:"kubernetes,omitempty"`
 	// Configuration allows to customize configuration feature
 	Configuration *ConfigurationExtension `json:"configuration,omitempty"`
-	// Catalog allows to customize application catalog feature
-	Catalog *CatalogExtension `json:"catalog,omitempty"`
 	// OpsCenter enables the management web UI
 	OpsCenter *OpsCenterExtension `json:"opsCenter,omitempty"`
 }
@@ -1209,12 +1202,6 @@ type LogsExtension struct {
 // MonitoringExtension allows to customize monitoring feature
 type MonitoringExtension struct {
 	// Disabled allows to disable Monitoring tab
-	Disabled bool `json:"disabled,omitempty"`
-}
-
-// CatalogExtension allows to customize application catalog feature
-type CatalogExtension struct {
-	// Disabled disables application catalog and tiller
 	Disabled bool `json:"disabled,omitempty"`
 }
 
@@ -1297,12 +1284,6 @@ func ShouldSkipApp(manifest Manifest, app loc.Locator) bool {
 	case defaults.IngressAppName:
 		// do not install ingress-app if ingress feature is disabled
 		return !manifest.IngressEnabled()
-	case defaults.TillerAppName:
-		// do not install tiller-app if catalog feature is disabled
-		ext := manifest.Extensions
-		if ext != nil && ext.Catalog != nil && ext.Catalog.Disabled {
-			return true
-		}
 	case defaults.StorageAppName:
 		// do not install storage-app if no storage providers are enabled
 		return !manifest.OpenEBSEnabled()

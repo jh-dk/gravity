@@ -358,7 +358,6 @@ K8S_IMPORT_OPTIONS := \
 		--set-dep=$(INGRESS_APP_PKG) \
 		--set-dep=$(STORAGE_APP_PKG) \
 		--set-dep=$(BANDWAGON_PKG) \
-		--set-dep=$(TILLER_APP_PKG) \
 		--set-dep=$(SITE_APP_PKG)
 
 .PHONY: rbac-app
@@ -369,7 +368,7 @@ rbac-app:
 	$(GRAVITY) package export $(RBAC_APP_PKG) $(RBAC_APP_OUT)
 
 .PHONY: k8s-app
-k8s-app: gravity-package teleport fio planet web-assets site-app monitoring-app logging-app ingress-app storage-app tiller-app rbac-app dns-app bandwagon
+k8s-app: gravity-package teleport fio planet web-assets site-app monitoring-app logging-app ingress-app storage-app rbac-app dns-app bandwagon
 	@echo -e "\n----> Building kubernetes-app...\n"
 	- $(GRAVITY) app delete $(K8S_APP_PKG) $(DELETE_OPTS) && \
 	  $(GRAVITY) app import $(ASSETSDIR)/kubernetes $(VENDOR_OPTS) $(K8S_IMPORT_OPTIONS) \
@@ -391,12 +390,6 @@ dns-app:
 	@echo -e "\n----> Building $@...\n"
 	VERSION=$(DNS_APP_TAG) GRAVITY="$(GRAVITY)" OPS_URL=$(OPS_URL) make -C $(ASSETSDIR)/dns-app import
 	$(GRAVITY) package export $(DNS_APP_PKG) $(DNS_APP_OUT)
-
-.PHONY: tiller-app
-tiller-app:
-	@echo -e "\n----> Building tiller-app...\n"
-	VERSION=$(TILLER_APP_TAG) GRAVITY="$(GRAVITY)" OPS_URL=$(OPS_URL) make -C $(ASSETSDIR)/tiller-app import
-	$(GRAVITY) package export $(TILLER_APP_PKG) $(TILLER_APP_OUT)
 
 .PHONY: site-app
 site-app:

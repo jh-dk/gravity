@@ -21,9 +21,7 @@ An application image is a tarball that contains:
 !!! tip
     The `tele` and `gravity` binaries have all required Helm functionality
     built-in so the `helm` binary isn't required to be installed on the
-    server when building applications, or inside a deployed cluster. The
-    `tiller` server (Helm's server component) does need to be deployed to
-    the cluster.
+    server when building applications, or inside a deployed cluster.
 
 Both  `tele version` and `gravity version` commands report the embedded Helm
 version:

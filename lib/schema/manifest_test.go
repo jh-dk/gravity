@@ -639,10 +639,6 @@ extensions:
 			skip: true,
 		},
 		{
-			name: defaults.TillerAppName,
-			skip: true,
-		},
-		{
 			name: constants.DNSAppPackage,
 			skip: false,
 		},

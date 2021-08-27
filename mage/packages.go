@@ -79,7 +79,6 @@ var (
 		repository: "gravitational.io",
 		name:       "planet",
 		version:    planetVersion,
-		gitBranch:  planetBranch,
 		gitRepo:    "https://github.com/gravitational/planet",
 		env: map[string]string{
 			"PLANET_BUILD_TAG": planetVersion,
@@ -134,15 +133,6 @@ var (
 		version:    appStorageVersion,
 		gitBranch:  appStorageBranch,
 		gitRepo:    appStorageRepo,
-	}
-
-	pkgTillerApp = gravityPackage{
-		repository: "gravitational.io",
-		name:       "tiller-app",
-		version:    appTillerVersion,
-		setImage:   []string{fmt.Sprint("gcr.io/kubernetes-helm/tiller:v", tillerVersion)},
-		include:    []string{"resources", "registry"},
-		srcDir:     "assets/tiller-app",
 	}
 
 	pkgRBAC = gravityPackage{
@@ -200,7 +190,6 @@ var (
 			pkgIngressApp.Locator(),
 			pkgStorageApp.Locator(),
 			pkgBandwagonApp.Locator(),
-			pkgTillerApp.Locator(),
 			pkgSiteApp.Locator(),
 		},
 		force: true,
@@ -221,7 +210,7 @@ func (Package) K8s(ctx context.Context) (err error) {
 		Build.Go, Package.Gravity, Package.Teleport,
 		Package.Fio, Package.Planet, Package.Web,
 		Package.Site, Package.Monitoring, Package.Logging,
-		Package.Ingress, Package.Storage, Package.Tiller,
+		Package.Ingress, Package.Storage,
 		Package.Rbac, Package.DNS, Package.Bandwagon)
 
 	m := root.Target("package:k8s")
@@ -504,10 +493,6 @@ func (Package) Ingress(ctx context.Context) (err error) {
 
 func (Package) Storage(ctx context.Context) (err error) {
 	return trace.Wrap(pkgStorageApp.BuildApp(ctx))
-}
-
-func (Package) Tiller(ctx context.Context) (err error) {
-	return trace.Wrap(pkgTillerApp.BuildApp(ctx))
 }
 
 func (Package) Rbac(ctx context.Context) (err error) {

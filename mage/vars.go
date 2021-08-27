@@ -206,16 +206,8 @@ var (
 		Default: buildVersion,
 		Short:   "Logging application tag/branch to build",
 	})
-	appTillerVersion = env.E(magnet.EnvVar{
-		Key:   "TILLER_APP_TAG",
-		Short: "Logging application tag/branch to build",
-	})
 
 	// Dependency Versions
-	tillerVersion = env.E(magnet.EnvVar{
-		Key:   "TILLER_VERSION",
-		Short: "Tiller version to include",
-	})
 	selinuxVersion = env.E(magnet.EnvVar{
 		Key:   "SELINUX_VERSION",
 		Short: "",

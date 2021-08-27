@@ -32,7 +32,6 @@ var (
 		{Name: defaults.LoggingAppName},
 		{Name: defaults.MonitoringAppName},
 		{Name: defaults.IngressAppName},
-		{Name: defaults.TillerAppName},
 		{Name: defaults.StorageAppName},
 		{Name: defaults.BandwagonPackageName},
 	}

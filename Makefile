@@ -89,7 +89,6 @@ K8S_APP_PKG := gravitational.io/kubernetes:$(K8S_APP_TAG)
 TELEKUBE_APP_PKG := gravitational.io/telekube:$(TELEKUBE_APP_TAG)
 BANDWAGON_PKG := gravitational.io/bandwagon:$(BANDWAGON_TAG)
 RBAC_APP_PKG := gravitational.io/rbac-app:$(RBAC_APP_TAG)
-TILLER_APP_PKG := gravitational.io/tiller-app:$(TILLER_APP_TAG)
 FIO_PKG := gravitational.io/fio:$(FIO_PKG_TAG)
 SELINUX_POLICY_PKG := gravitational.io/selinux:$(SELINUX_VERSION)
 
@@ -145,7 +144,6 @@ DNS_APP_OUT := $(GRAVITY_BUILDDIR)/dns-app.tar.gz
 K8S_APP_OUT := $(GRAVITY_BUILDDIR)/kubernetes-app.tar.gz
 RBAC_APP_OUT := $(GRAVITY_BUILDDIR)/rbac-app.tar.gz
 TELEKUBE_APP_OUT := $(GRAVITY_BUILDDIR)/telekube-app.tar.gz
-TILLER_APP_OUT := $(GRAVITY_BUILDDIR)/tiller-app.tar.gz
 TELEKUBE_OUT := $(GRAVITY_BUILDDIR)/telekube.tar
 OPSCENTER_OUT := $(GRAVITY_BUILDDIR)/opscenter.tar
 SELINUX_ASSETSDIR := $(TOP)/lib/system/selinux/internal/policy/assets/centos
@@ -167,8 +165,7 @@ GRAVITY_PUBLISH_TARGETS := $(GRAVITY_OUT) \
 	$(DNS_APP_OUT) \
 	$(K8S_APP_OUT) \
 	$(RBAC_APP_OUT) \
-	$(TELEKUBE_APP_OUT) \
-	$(TILLER_APP_OUT)
+	$(TELEKUBE_APP_OUT)
 
 GRAVITY_EXTRA_OPTIONS ?=
 
@@ -272,10 +269,6 @@ rbac-app:
 dns-app:
 	$(MAKE) -C build.assets dns-app
 
-.PHONY: tiller-app
-tiller-app:
-	make -C build.assets tiller-app
-
 #
 # reimport k8s app and refresh tarball
 #
@@ -358,7 +351,7 @@ test:
 #
 .PHONY: packages
 packages: planet-packages binary-packages teleport-package gravity-packages dns-packages\
-	rbac-app-package bandwagon-package tiller-package monitoring-package \
+	rbac-app-package bandwagon-package monitoring-package \
 	ingress-package storage-package log-package k8s-packages telekube-packages \
 	selinux-policy-package
 
@@ -373,12 +366,6 @@ bandwagon-package:
 # Bandwagon - installer extension
 	-$(GRAVITY) app delete $(BANDWAGON_PKG) $(DELETE_OPTS)
 	$(GRAVITY) app import $(BANDWAGON_OUT) $(VENDOR_OPTS)
-
-.PHONY: tiller-package
-tiller-package:
-# Tiller server
-	-$(GRAVITY) app delete $(TILLER_APP_PKG) $(DELETE_OPTS)
-	$(GRAVITY) app import $(TILLER_APP_OUT) $(VENDOR_OPTS)
 
 .PHONY: ingress-package
 ingress-package:
